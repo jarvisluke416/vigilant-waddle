@@ -25,6 +25,12 @@ const double MIN_TEMPO = 40.0;
 const double MAX_TEMPO = 240.0;
 const double TEMPO_STEP = 5.0;
 
+const int MIN_PITCH = -12;
+const int MAX_PITCH = 12;
+const int PITCH_STEP = 1;
+
+const int AUDIO_BUFFER_COUNT = 2;
+
 // ============================================================
 // COLORS
 // ============================================================
@@ -43,6 +49,7 @@ std::atomic<bool> looping[PLAYER_COUNT] = {};
 std::atomic<bool> stopRequested[PLAYER_COUNT] = {};
 
 std::atomic<double> currentTempo[PLAYER_COUNT] = {};
+std::atomic<int> currentPitch[PLAYER_COUNT] = {};
 
 HWND playButton[PLAYER_COUNT] = {};
 HWND loopButton[PLAYER_COUNT] = {};
@@ -51,20 +58,33 @@ HWND tempoMinusButton[PLAYER_COUNT] = {};
 HWND tempoPlusButton[PLAYER_COUNT] = {};
 HWND tempoLabel[PLAYER_COUNT] = {};
 
+HWND pitchMinusButton[PLAYER_COUNT] = {};
+HWND pitchPlusButton[PLAYER_COUNT] = {};
+HWND pitchLabel[PLAYER_COUNT] = {};
+
 HWND mainWindow = nullptr;
 
 // ============================================================
 // RANDOM
 // ============================================================
 
-std::mt19937 randomGenerator(12345);
+// IMPORTANT:
+// Each thread gets its own random generator.
+// This avoids multiple player threads fighting over one
+// std::mt19937 instance.
 
 double noise()
 {
-    static std::uniform_real_distribution<double>
-        distribution(-1.0, 1.0);
+    thread_local std::mt19937 generator(
+        std::random_device{}()
+    );
 
-    return distribution(randomGenerator);
+    thread_local std::uniform_real_distribution<double> distribution(
+        -1.0,
+        1.0
+    );
+
+    return distribution(generator);
 }
 
 // ============================================================
@@ -142,9 +162,14 @@ double kick(double t)
     double envelope =
         std::exp(-7.0 * t);
 
-    return std::sin(
-        2.0 * PI * frequency * t
-    ) * envelope;
+    return
+        std::sin(
+            2.0 *
+            PI *
+            frequency *
+            t
+        )
+        * envelope;
 }
 
 double snare(double t)
@@ -160,11 +185,18 @@ double snare(double t)
 
     double body =
         std::sin(
-            2.0 * PI * 180.0 * t
-        ) * std::exp(-20.0 * t);
+            2.0 *
+            PI *
+            180.0 *
+            t
+        )
+        *
+        std::exp(-20.0 * t);
 
-    return noisePart * 0.8 +
-           body * 0.2;
+    return
+        noisePart * 0.8
+        +
+        body * 0.2;
 }
 
 double closedHiHat(double t)
@@ -172,9 +204,12 @@ double closedHiHat(double t)
     if (t < 0 || t >= 0.12)
         return 0.0;
 
-    return noise()
-           * std::exp(-45.0 * t)
-           * 0.7;
+    return
+        noise()
+        *
+        std::exp(-45.0 * t)
+        *
+        0.7;
 }
 
 double openHiHat(double t)
@@ -182,9 +217,12 @@ double openHiHat(double t)
     if (t < 0 || t >= 0.8)
         return 0.0;
 
-    return noise()
-           * std::exp(-5.0 * t)
-           * 0.6;
+    return
+        noise()
+        *
+        std::exp(-5.0 * t)
+        *
+        0.6;
 }
 
 double clap(double t)
@@ -193,43 +231,70 @@ double clap(double t)
         return 0.0;
 
     double burst1 =
-        std::exp(-80.0 * std::abs(t));
+        std::exp(
+            -80.0 *
+            std::abs(t)
+        );
 
     double burst2 =
         std::exp(
             -60.0 *
-            std::abs(t - 0.025)
+            std::abs(
+                t - 0.025
+            )
         );
 
     double burst3 =
         std::exp(
             -50.0 *
-            std::abs(t - 0.050)
+            std::abs(
+                t - 0.050
+            )
         );
 
     double envelope =
-        std::exp(-14.0 * t);
+        std::exp(
+            -14.0 *
+            t
+        );
 
-    return noise()
-           * (burst1 + burst2 + burst3)
-           * envelope;
+    return
+        noise()
+        *
+        (
+            burst1 +
+            burst2 +
+            burst3
+        )
+        *
+        envelope;
 }
 
-double tom(double t, double frequency)
+double tom(
+    double t,
+    double frequency)
 {
     if (t < 0 || t >= 0.6)
         return 0.0;
 
     double pitch =
-        frequency * std::exp(-3.0 * t)
-        + frequency * 0.4;
+        frequency *
+        std::exp(-3.0 * t)
+        +
+        frequency * 0.4;
 
     double envelope =
         std::exp(-7.0 * t);
 
-    return std::sin(
-        2.0 * PI * pitch * t
-    ) * envelope;
+    return
+        std::sin(
+            2.0 *
+            PI *
+            pitch *
+            t
+        )
+        *
+        envelope;
 }
 
 double crash(double t)
@@ -237,9 +302,12 @@ double crash(double t)
     if (t < 0 || t >= 2.0)
         return 0.0;
 
-    return noise()
-           * std::exp(-2.5 * t)
-           * 0.65;
+    return
+        noise()
+        *
+        std::exp(-2.5 * t)
+        *
+        0.65;
 }
 
 double ride(double t)
@@ -255,13 +323,22 @@ double ride(double t)
 
     double tone =
         std::sin(
-            2.0 * PI * 3500.0 * t
+            2.0 *
+            PI *
+            3500.0 *
+            t
         );
 
-    return (
-        metallic * 0.5 +
-        tone * 0.5
-    ) * envelope * 0.4;
+    return
+        (
+            metallic * 0.5
+            +
+            tone * 0.5
+        )
+        *
+        envelope
+        *
+        0.4;
 }
 
 double rimshot(double t)
@@ -274,10 +351,21 @@ double rimshot(double t)
 
     return
         std::sin(
-            2.0 * PI * 1200.0 * t
-        ) * envelope * 0.8
+            2.0 *
+            PI *
+            1200.0 *
+            t
+        )
+        *
+        envelope
+        *
+        0.8
         +
-        noise() * envelope * 0.3;
+        noise()
+        *
+        envelope
+        *
+        0.3;
 }
 
 double cowbell(double t)
@@ -290,17 +378,29 @@ double cowbell(double t)
 
     double tone1 =
         std::sin(
-            2.0 * PI * 540.0 * t
+            2.0 *
+            PI *
+            540.0 *
+            t
         );
 
     double tone2 =
         std::sin(
-            2.0 * PI * 800.0 * t
+            2.0 *
+            PI *
+            800.0 *
+            t
         );
 
-    return (
-        tone1 + tone2
-    ) * envelope * 0.4;
+    return
+        (
+            tone1 +
+            tone2
+        )
+        *
+        envelope
+        *
+        0.4;
 }
 
 double shaker(double t)
@@ -308,9 +408,12 @@ double shaker(double t)
     if (t < 0 || t >= 0.25)
         return 0.0;
 
-    return noise()
-           * std::exp(-18.0 * t)
-           * 0.5;
+    return
+        noise()
+        *
+        std::exp(-18.0 * t)
+        *
+        0.5;
 }
 
 double tambourine(double t)
@@ -326,13 +429,22 @@ double tambourine(double t)
 
     double ring =
         std::sin(
-            2.0 * PI * 4000.0 * t
+            2.0 *
+            PI *
+            4000.0 *
+            t
         );
 
-    return (
-        metal * 0.7 +
-        ring * 0.3
-    ) * envelope * 0.5;
+    return
+        (
+            metal * 0.7
+            +
+            ring * 0.3
+        )
+        *
+        envelope
+        *
+        0.5;
 }
 
 // ============================================================
@@ -393,6 +505,9 @@ double makeDrum(
 
 // ============================================================
 // LOAD SONG
+//
+// Notes/drums remain in BEATS.
+// Tempo is applied later during audio generation.
 // ============================================================
 
 bool LoadSong(
@@ -402,7 +517,9 @@ bool LoadSong(
     double& tempo,
     double& loopLengthBeats)
 {
-    std::ifstream songFile(filename);
+    std::ifstream songFile(
+        filename
+    );
 
     if (!songFile)
         return false;
@@ -439,13 +556,18 @@ bool LoadSong(
             double startBeat;
             double durationBeats;
 
-            songFile >>
-                noteName >>
-                startBeat >>
+            songFile
+                >>
+                noteName
+                >>
+                startBeat
+                >>
                 durationBeats;
 
             double frequency =
-                noteFrequency(noteName);
+                noteFrequency(
+                    noteName
+                );
 
             if (frequency > 0.0)
             {
@@ -464,8 +586,10 @@ bool LoadSong(
             std::string drumType;
             double startBeat;
 
-            songFile >>
-                drumType >>
+            songFile
+                >>
+                drumType
+                >>
                 startBeat;
 
             drums.push_back(
@@ -482,11 +606,18 @@ bool LoadSong(
 
 // ============================================================
 // GENERATE AUDIO
+//
+// IMPORTANT:
+//
+// pitchSemitones affects ONLY the melody.
+//
+// Drums are generated normally and are NOT pitch shifted.
 // ============================================================
 
 bool GenerateAudio(
     const char* filename,
     double tempoOverride,
+    int pitchSemitones,
     std::vector<short>& samples)
 {
     std::vector<NoteEvent> notes;
@@ -506,13 +637,36 @@ bool GenerateAudio(
     }
 
     double tempo =
-        tempoOverride;
+        std::max(
+            MIN_TEMPO,
+            std::min(
+                MAX_TEMPO,
+                tempoOverride
+            )
+        );
 
-    if (tempo < MIN_TEMPO)
-        tempo = MIN_TEMPO;
+    int pitch =
+        std::max(
+            MIN_PITCH,
+            std::min(
+                MAX_PITCH,
+                pitchSemitones
+            )
+        );
 
-    if (tempo > MAX_TEMPO)
-        tempo = MAX_TEMPO;
+    // --------------------------------------------------------
+    // Convert semitones to frequency multiplier.
+    //
+    // +12 = one octave up
+    // -12 = one octave down
+    //  0  = original pitch
+    // --------------------------------------------------------
+
+    double pitchMultiplier =
+        std::pow(
+            2.0,
+            static_cast<double>(pitch) / 12.0
+        );
 
     double secondsPerBeat =
         60.0 / tempo;
@@ -553,15 +707,24 @@ bool GenerateAudio(
 
         int startSample =
             static_cast<int>(
-                startSeconds *
-                SAMPLE_RATE
+                std::round(
+                    startSeconds *
+                    SAMPLE_RATE
+                )
             );
 
         int noteSamples =
             static_cast<int>(
-                durationSeconds *
-                SAMPLE_RATE
+                std::round(
+                    durationSeconds *
+                    SAMPLE_RATE
+                )
             );
+
+        // PITCH SHIFT ONLY THE NOTE.
+        double shiftedFrequency =
+            note.frequency *
+            pitchMultiplier;
 
         for (
             int i = 0;
@@ -569,7 +732,8 @@ bool GenerateAudio(
             ++i)
         {
             int index =
-                startSample + i;
+                startSample +
+                i;
 
             if (index < 0)
                 continue;
@@ -579,7 +743,8 @@ bool GenerateAudio(
 
             double time =
                 static_cast<double>(i)
-                / SAMPLE_RATE;
+                /
+                SAMPLE_RATE;
 
             double envelope = 1.0;
 
@@ -611,7 +776,7 @@ bool GenerateAudio(
                 std::sin(
                     2.0 *
                     PI *
-                    note.frequency *
+                    shiftedFrequency *
                     time
                 );
 
@@ -624,6 +789,8 @@ bool GenerateAudio(
 
     // ========================================================
     // DRUMS
+    //
+    // NO pitch multiplier here.
     // ========================================================
 
     for (const DrumEvent& drum : drums)
@@ -634,8 +801,10 @@ bool GenerateAudio(
 
         int startSample =
             static_cast<int>(
-                startSeconds *
-                SAMPLE_RATE
+                std::round(
+                    startSeconds *
+                    SAMPLE_RATE
+                )
             );
 
         int drumSamples =
@@ -650,7 +819,8 @@ bool GenerateAudio(
             ++i)
         {
             int index =
-                startSample + i;
+                startSample +
+                i;
 
             if (index < 0)
                 continue;
@@ -660,18 +830,21 @@ bool GenerateAudio(
 
             double time =
                 static_cast<double>(i)
-                / SAMPLE_RATE;
+                /
+                SAMPLE_RATE;
 
             audio[index] +=
                 makeDrum(
                     drum.type,
                     time
-                ) * 0.5;
+                )
+                *
+                0.5;
         }
     }
 
     // ========================================================
-    // CONVERT TO 16-BIT
+    // CONVERT TO 16-BIT PCM
     // ========================================================
 
     samples.resize(
@@ -694,7 +867,8 @@ bool GenerateAudio(
 
         samples[i] =
             static_cast<short>(
-                value * 32767.0
+                value *
+                32767.0
             );
     }
 
@@ -709,24 +883,32 @@ bool GenerateAudio(
 #define ID_LOOP1        102
 #define ID_TEMPO_MINUS1 103
 #define ID_TEMPO_PLUS1  104
+#define ID_PITCH_MINUS1 105
+#define ID_PITCH_PLUS1  106
 
 #define ID_PLAY2        201
 #define ID_LOOP2        202
 #define ID_TEMPO_MINUS2 203
 #define ID_TEMPO_PLUS2  204
+#define ID_PITCH_MINUS2 205
+#define ID_PITCH_PLUS2  206
 
 #define ID_PLAY3        301
 #define ID_LOOP3        302
 #define ID_TEMPO_MINUS3 303
 #define ID_TEMPO_PLUS3  304
+#define ID_PITCH_MINUS3 305
+#define ID_PITCH_PLUS3  306
 
 #define ID_PLAY4        401
 #define ID_LOOP4        402
 #define ID_TEMPO_MINUS4 403
 #define ID_TEMPO_PLUS4  404
+#define ID_PITCH_MINUS4 405
+#define ID_PITCH_PLUS4  406
 
 // ============================================================
-// TEMPO DISPLAY
+// DISPLAY HELPERS
 // ============================================================
 
 void UpdateTempoDisplay(
@@ -742,7 +924,10 @@ void UpdateTempoDisplay(
 
     int tempo =
         static_cast<int>(
-            currentTempo[playerIndex].load()
+            std::round(
+                currentTempo[playerIndex]
+                    .load()
+            )
         );
 
     char text[64];
@@ -759,8 +944,48 @@ void UpdateTempoDisplay(
     );
 }
 
+void UpdatePitchDisplay(
+    int playerIndex)
+{
+    if (
+        playerIndex < 0 ||
+        playerIndex >= PLAYER_COUNT)
+        return;
+
+    if (!pitchLabel[playerIndex])
+        return;
+
+    int pitch =
+        currentPitch[playerIndex]
+            .load();
+
+    char text[64];
+
+    if (pitch > 0)
+    {
+        wsprintfA(
+            text,
+            "PITCH: +%d",
+            pitch
+        );
+    }
+    else
+    {
+        wsprintfA(
+            text,
+            "PITCH: %d",
+            pitch
+        );
+    }
+
+    SetWindowTextA(
+        pitchLabel[playerIndex],
+        text
+    );
+}
+
 // ============================================================
-// RESIZE BUTTONS
+// RESIZE PLAYER CONTROLS
 // ============================================================
 
 void ResizePlayerButtons(
@@ -786,62 +1011,98 @@ void ResizePlayerButtons(
         ++i)
     {
         int x =
-            i * columnWidth + 20;
+            i * columnWidth +
+            15;
 
         int buttonWidth =
-            columnWidth - 40;
+            columnWidth -
+            30;
 
-        if (buttonWidth < 80)
-            buttonWidth = 80;
+        if (buttonWidth < 100)
+            buttonWidth = 100;
 
-        int smallButtonWidth =
-            (buttonWidth - 10) / 2;
-
-        if (smallButtonWidth < 40)
-            smallButtonWidth = 40;
-
+        // PLAY
         MoveWindow(
             playButton[i],
             x,
-            80,
+            75,
             buttonWidth,
-            55,
+            50,
             TRUE
         );
 
+        // LOOP
         MoveWindow(
             loopButton[i],
             x,
-            145,
+            130,
             buttonWidth,
-            45,
-            TRUE
-        );
-
-        MoveWindow(
-            tempoMinusButton[i],
-            x,
-            200,
-            smallButtonWidth,
             40,
             TRUE
         );
 
+        // TEMPO -
+        int smallWidth =
+            (buttonWidth - 10) / 2;
+
+        MoveWindow(
+            tempoMinusButton[i],
+            x,
+            180,
+            smallWidth,
+            40,
+            TRUE
+        );
+
+        // TEMPO DISPLAY
         MoveWindow(
             tempoLabel[i],
-            x + smallButtonWidth + 5,
-            200,
+            x + smallWidth + 5,
+            180,
             buttonWidth -
-                smallButtonWidth -
+                smallWidth -
                 10,
             40,
             TRUE
         );
 
+        // TEMPO +
         MoveWindow(
             tempoPlusButton[i],
             x,
-            245,
+            225,
+            buttonWidth,
+            40,
+            TRUE
+        );
+
+        // PITCH -
+        MoveWindow(
+            pitchMinusButton[i],
+            x,
+            275,
+            smallWidth,
+            40,
+            TRUE
+        );
+
+        // PITCH DISPLAY
+        MoveWindow(
+            pitchLabel[i],
+            x + smallWidth + 5,
+            275,
+            buttonWidth -
+                smallWidth -
+                10,
+            40,
+            TRUE
+        );
+
+        // PITCH +
+        MoveWindow(
+            pitchPlusButton[i],
+            x,
+            320,
             buttonWidth,
             40,
             TRUE
@@ -852,15 +1113,16 @@ void ResizePlayerButtons(
 // ============================================================
 // PLAY ONE PLAYER
 //
-// IMPORTANT:
-// The audio device stays open for the entire playback.
+// IMPORTANT CHANGE:
 //
-// TWO buffers are queued:
-//     Buffer 0 -> current loop
-//     Buffer 1 -> next loop
+// The audio device stays open.
+// TWO WAVEHDR buffers are kept in the queue.
 //
-// This prevents the device from becoming empty at
-// the loop boundary.
+// This prevents the old:
+//
+//     play -> close -> reopen -> play
+//
+// behavior that caused the loop gap.
 // ============================================================
 
 void PlaySong(
@@ -885,8 +1147,11 @@ void PlaySong(
         "song4.txt"
     };
 
+    const char* filename =
+        filenames[playerIndex];
+
     // ========================================================
-    // READ INITIAL TEMPO
+    // READ SONG INFORMATION
     // ========================================================
 
     std::vector<NoteEvent> tempNotes;
@@ -896,7 +1161,7 @@ void PlaySong(
     double loopLengthBeats = 4.0;
 
     if (!LoadSong(
-        filenames[playerIndex],
+        filename,
         tempNotes,
         tempDrums,
         fileTempo,
@@ -921,8 +1186,8 @@ void PlaySong(
         return;
     }
 
-    // If the tempo has not been initialized,
-    // use the tempo from the song file.
+    // If tempo has never been initialized,
+    // use the TEMPO from the song file.
     if (
         currentTempo[playerIndex].load()
         <= 0.0)
@@ -932,6 +1197,10 @@ void PlaySong(
     }
 
     UpdateTempoDisplay(
+        playerIndex
+    );
+
+    UpdatePitchDisplay(
         playerIndex
     );
 
@@ -963,7 +1232,7 @@ void PlaySong(
         format.nBlockAlign;
 
     // ========================================================
-    // OPEN DEVICE ONCE
+    // OPEN AUDIO DEVICE ONCE
     // ========================================================
 
     HWAVEOUT audioDevice =
@@ -980,7 +1249,8 @@ void PlaySong(
         );
 
     if (
-        result != MMSYSERR_NOERROR)
+        result !=
+        MMSYSERR_NOERROR)
     {
         MessageBoxA(
             mainWindow,
@@ -1002,21 +1272,55 @@ void PlaySong(
     }
 
     // ========================================================
-    // GENERATE FIRST TWO BUFFERS
-    //
-    // Both are generated before playback begins.
-    // This gives waveOut two buffers to work with.
+    // TWO AUDIO BUFFERS
     // ========================================================
 
-    std::vector<short> audioBuffers[2];
+    std::vector<short> audioSamples[
+        AUDIO_BUFFER_COUNT
+    ];
 
-    double initialTempo =
-        currentTempo[playerIndex].load();
+    WAVEHDR headers[
+        AUDIO_BUFFER_COUNT
+    ] = {};
 
-    if (!GenerateAudio(
-        filenames[playerIndex],
-        initialTempo,
-        audioBuffers[0]))
+    bool prepared[
+        AUDIO_BUFFER_COUNT
+    ] = {};
+
+    bool queued[
+        AUDIO_BUFFER_COUNT
+    ] = {};
+
+    // ========================================================
+    // HELPER TO GENERATE ONE BUFFER
+    // ========================================================
+
+    auto generateBuffer =
+        [&](int bufferIndex) -> bool
+    {
+        double tempo =
+            currentTempo[playerIndex]
+                .load();
+
+        int pitch =
+            currentPitch[playerIndex]
+                .load();
+
+        return GenerateAudio(
+            filename,
+            tempo,
+            pitch,
+            audioSamples[
+                bufferIndex
+            ]
+        );
+    };
+
+    // ========================================================
+    // GENERATE INITIAL TWO BUFFERS
+    // ========================================================
+
+    if (!generateBuffer(0))
     {
         waveOutClose(
             audioDevice
@@ -1034,13 +1338,73 @@ void PlaySong(
         return;
     }
 
-    if (looping[playerIndex])
+    if (!generateBuffer(1))
     {
-        if (!GenerateAudio(
-            filenames[playerIndex],
-            currentTempo[playerIndex].load(),
-            audioBuffers[1]))
+        waveOutClose(
+            audioDevice
+        );
+
+        playing[playerIndex] = false;
+
+        PostMessage(
+            mainWindow,
+            WM_USER + playerIndex + 1,
+            0,
+            0
+        );
+
+        return;
+    }
+
+    // ========================================================
+    // PREPARE AND QUEUE BOTH BUFFERS
+    // ========================================================
+
+    for (
+        int i = 0;
+        i < AUDIO_BUFFER_COUNT;
+        ++i)
+    {
+        headers[i] = {};
+
+        headers[i].lpData =
+            reinterpret_cast<LPSTR>(
+                audioSamples[i].data()
+            );
+
+        headers[i].dwBufferLength =
+            static_cast<DWORD>(
+                audioSamples[i].size()
+                *
+                sizeof(short)
+            );
+
+        result =
+            waveOutPrepareHeader(
+                audioDevice,
+                &headers[i],
+                sizeof(WAVEHDR)
+            );
+
+        if (
+            result !=
+            MMSYSERR_NOERROR)
         {
+            for (
+                int j = 0;
+                j < i;
+                ++j)
+            {
+                if (prepared[j])
+                {
+                    waveOutUnprepareHeader(
+                        audioDevice,
+                        &headers[j],
+                        sizeof(WAVEHDR)
+                    );
+                }
+            }
+
             waveOutClose(
                 audioDevice
             );
@@ -1056,377 +1420,266 @@ void PlaySong(
 
             return;
         }
-    }
-    else
-    {
-        // Just make an empty buffer.
-        // It will not be submitted unless needed.
-        audioBuffers[1].clear();
-    }
 
-    // ========================================================
-    // WAVE HEADERS
-    // ========================================================
-
-    WAVEHDR headers[2] = {};
-
-    headers[0].lpData =
-        reinterpret_cast<LPSTR>(
-            audioBuffers[0].data()
-        );
-
-    headers[0].dwBufferLength =
-        static_cast<DWORD>(
-            audioBuffers[0].size()
-            * sizeof(short)
-        );
-
-    // ========================================================
-    // PREPARE FIRST BUFFER
-    // ========================================================
-
-    result =
-        waveOutPrepareHeader(
-            audioDevice,
-            &headers[0],
-            sizeof(WAVEHDR)
-        );
-
-    if (
-        result != MMSYSERR_NOERROR)
-    {
-        waveOutClose(
-            audioDevice
-        );
-
-        playing[playerIndex] = false;
-
-        PostMessage(
-            mainWindow,
-            WM_USER + playerIndex + 1,
-            0,
-            0
-        );
-
-        return;
-    }
-
-    // ========================================================
-    // PLAY FIRST BUFFER
-    // ========================================================
-
-    result =
-        waveOutWrite(
-            audioDevice,
-            &headers[0],
-            sizeof(WAVEHDR)
-        );
-
-    if (
-        result != MMSYSERR_NOERROR)
-    {
-        waveOutUnprepareHeader(
-            audioDevice,
-            &headers[0],
-            sizeof(WAVEHDR)
-        );
-
-        waveOutClose(
-            audioDevice
-        );
-
-        playing[playerIndex] = false;
-
-        PostMessage(
-            mainWindow,
-            WM_USER + playerIndex + 1,
-            0,
-            0
-        );
-
-        return;
-    }
-
-    // ========================================================
-    // SECOND BUFFER
-    //
-    // If looping is already enabled, queue it immediately.
-    // ========================================================
-
-    bool secondBufferQueued =
-        false;
-
-    if (
-        looping[playerIndex] &&
-        !audioBuffers[1].empty())
-    {
-        headers[1].lpData =
-            reinterpret_cast<LPSTR>(
-                audioBuffers[1].data()
-            );
-
-        headers[1].dwBufferLength =
-            static_cast<DWORD>(
-                audioBuffers[1].size()
-                * sizeof(short)
-            );
-
-        result =
-            waveOutPrepareHeader(
-                audioDevice,
-                &headers[1],
-                sizeof(WAVEHDR)
-            );
-
-        if (
-            result == MMSYSERR_NOERROR)
-        {
-            result =
-                waveOutWrite(
-                    audioDevice,
-                    &headers[1],
-                    sizeof(WAVEHDR)
-                );
-
-            if (
-                result == MMSYSERR_NOERROR)
-            {
-                secondBufferQueued = true;
-            }
-            else
-            {
-                waveOutUnprepareHeader(
-                    audioDevice,
-                    &headers[1],
-                    sizeof(WAVEHDR)
-                );
-            }
-        }
-    }
-
-    // ========================================================
-    // PLAYBACK MANAGEMENT
-    // ========================================================
-
-    int currentBuffer = 0;
-
-    while (!stopRequested[playerIndex])
-    {
-        // Wait until the current buffer finishes.
-        while (
-            !(headers[currentBuffer].dwFlags
-              & WHDR_DONE))
-        {
-            if (
-                stopRequested[playerIndex])
-            {
-                break;
-            }
-
-            Sleep(1);
-        }
-
-        if (stopRequested[playerIndex])
-            break;
-
-        // ====================================================
-        // LOOP OFF
-        // ====================================================
-
-        if (!looping[playerIndex])
-        {
-            break;
-        }
-
-        // ====================================================
-        // THE OTHER BUFFER SHOULD ALREADY BE PLAYING
-        // ====================================================
-
-        int finishedBuffer =
-            currentBuffer;
-
-        int nextBuffer =
-            1 - currentBuffer;
-
-        // ====================================================
-        // If the second buffer was not successfully queued,
-        // we need to prepare it now.
-        //
-        // Normally this is already playing.
-        // ====================================================
-
-        if (
-            finishedBuffer == 0 &&
-            !secondBufferQueued)
-        {
-            break;
-        }
-
-        // ====================================================
-        // Wait for the next buffer to finish if necessary.
-        //
-        // This case normally doesn't occur because buffer 1
-        // was queued before buffer 0 finished.
-        // ====================================================
-
-        if (
-            nextBuffer == 1 &&
-            secondBufferQueued)
-        {
-            // Buffer 1 is already queued.
-        }
-
-        // ====================================================
-        // Wait until the finished buffer is completely done.
-        // ====================================================
-
-        while (
-            !(headers[finishedBuffer].dwFlags
-              & WHDR_DONE))
-        {
-            if (
-                stopRequested[playerIndex])
-                break;
-
-            Sleep(1);
-        }
-
-        if (stopRequested[playerIndex])
-            break;
-
-        // ====================================================
-        // GENERATE THE NEXT VERSION OF THE FINISHED BUFFER
-        //
-        // This happens while the other buffer is playing.
-        //
-        // Tempo changes therefore apply to a future loop.
-        // ====================================================
-
-        std::vector<short> newSamples;
-
-        double tempo =
-            currentTempo[playerIndex].load();
-
-        if (!GenerateAudio(
-            filenames[playerIndex],
-            tempo,
-            newSamples))
-        {
-            break;
-        }
-
-        // ====================================================
-        // UNPREPARE THE FINISHED BUFFER
-        // ====================================================
-
-        waveOutUnprepareHeader(
-            audioDevice,
-            &headers[finishedBuffer],
-            sizeof(WAVEHDR)
-        );
-
-        // ====================================================
-        // REPLACE ITS AUDIO
-        // ====================================================
-
-        audioBuffers[finishedBuffer] =
-            std::move(newSamples);
-
-        headers[finishedBuffer] = {};
-
-        headers[finishedBuffer].lpData =
-            reinterpret_cast<LPSTR>(
-                audioBuffers[finishedBuffer].data()
-            );
-
-        headers[finishedBuffer].dwBufferLength =
-            static_cast<DWORD>(
-                audioBuffers[finishedBuffer].size()
-                * sizeof(short)
-            );
-
-        // ====================================================
-        // PREPARE IT AGAIN
-        // ====================================================
-
-        result =
-            waveOutPrepareHeader(
-                audioDevice,
-                &headers[finishedBuffer],
-                sizeof(WAVEHDR)
-            );
-
-        if (
-            result != MMSYSERR_NOERROR)
-        {
-            break;
-        }
-
-        // ====================================================
-        // QUEUE IT AGAIN
-        //
-        // The other buffer is already playing, so this one
-        // becomes the buffer after it.
-        // ====================================================
+        prepared[i] = true;
 
         result =
             waveOutWrite(
                 audioDevice,
-                &headers[finishedBuffer],
+                &headers[i],
                 sizeof(WAVEHDR)
             );
 
         if (
-            result != MMSYSERR_NOERROR)
+            result !=
+            MMSYSERR_NOERROR)
         {
-            break;
+            waveOutReset(
+                audioDevice
+            );
+
+            for (
+                int j = 0;
+                j < AUDIO_BUFFER_COUNT;
+                ++j)
+            {
+                if (prepared[j])
+                {
+                    waveOutUnprepareHeader(
+                        audioDevice,
+                        &headers[j],
+                        sizeof(WAVEHDR)
+                    );
+                }
+            }
+
+            waveOutClose(
+                audioDevice
+            );
+
+            playing[playerIndex] = false;
+
+            PostMessage(
+                mainWindow,
+                WM_USER + playerIndex + 1,
+                0,
+                0
+            );
+
+            return;
         }
 
-        currentBuffer =
-            finishedBuffer;
+        queued[i] = true;
     }
 
     // ========================================================
-    // STOP PLAYBACK
+    // CONTINUOUS PLAYBACK
+    // ========================================================
+
+    while (
+        !stopRequested[playerIndex])
+    {
+        bool didSomething =
+            false;
+
+        // ----------------------------------------------------
+        // Check both buffers.
+        //
+        // WHDR_DONE means Windows has finished that buffer.
+        // ----------------------------------------------------
+
+        for (
+            int i = 0;
+            i < AUDIO_BUFFER_COUNT;
+            ++i)
+        {
+            if (!queued[i])
+                continue;
+
+            if (
+                !(headers[i].dwFlags &
+                  WHDR_DONE))
+            {
+                continue;
+            }
+
+            didSomething = true;
+
+            // ------------------------------------------------
+            // BUFFER HAS FINISHED.
+            //
+            // It is now safe to unprepare it.
+            // ------------------------------------------------
+
+            waveOutUnprepareHeader(
+                audioDevice,
+                &headers[i],
+                sizeof(WAVEHDR)
+            );
+
+            prepared[i] = false;
+            queued[i] = false;
+
+            // ------------------------------------------------
+            // STOP REQUESTED
+            // ------------------------------------------------
+
+            if (stopRequested[playerIndex])
+                continue;
+
+            // ------------------------------------------------
+            // LOOP OFF
+            //
+            // Once the second queued buffer finishes,
+            // we should stop rather than queue another.
+            //
+            // We determine whether anything else is still
+            // queued below.
+            // ------------------------------------------------
+
+            if (!looping[playerIndex])
+                continue;
+
+            // ------------------------------------------------
+            // LOOP ON
+            //
+            // Generate the next loop using the CURRENT
+            // tempo and pitch.
+            //
+            // This is where tempo/pitch changes take effect.
+            // ------------------------------------------------
+
+            if (!generateBuffer(i))
+            {
+                stopRequested[playerIndex] = true;
+                continue;
+            }
+
+            headers[i] = {};
+
+            headers[i].lpData =
+                reinterpret_cast<LPSTR>(
+                    audioSamples[i].data()
+                );
+
+            headers[i].dwBufferLength =
+                static_cast<DWORD>(
+                    audioSamples[i].size()
+                    *
+                    sizeof(short)
+                );
+
+            result =
+                waveOutPrepareHeader(
+                    audioDevice,
+                    &headers[i],
+                    sizeof(WAVEHDR)
+                );
+
+            if (
+                result !=
+                MMSYSERR_NOERROR)
+            {
+                stopRequested[playerIndex] = true;
+                continue;
+            }
+
+            prepared[i] = true;
+
+            result =
+                waveOutWrite(
+                    audioDevice,
+                    &headers[i],
+                    sizeof(WAVEHDR)
+                );
+
+            if (
+                result !=
+                MMSYSERR_NOERROR)
+            {
+                waveOutUnprepareHeader(
+                    audioDevice,
+                    &headers[i],
+                    sizeof(WAVEHDR)
+                );
+
+                prepared[i] = false;
+
+                stopRequested[playerIndex] = true;
+                continue;
+            }
+
+            queued[i] = true;
+        }
+
+        // ----------------------------------------------------
+        // NON-LOOPING PLAYBACK
+        //
+        // If looping is off, wait until ALL queued buffers
+        // have completed.
+        // ----------------------------------------------------
+
+        if (!looping[playerIndex])
+        {
+            bool anythingQueued =
+                false;
+
+            for (
+                int i = 0;
+                i < AUDIO_BUFFER_COUNT;
+                ++i)
+            {
+                if (queued[i])
+                {
+                    anythingQueued = true;
+                    break;
+                }
+            }
+
+            if (!anythingQueued)
+                break;
+        }
+
+        // ----------------------------------------------------
+        // Avoid wasting CPU while checking the headers.
+        //
+        // There is already another complete audio buffer
+        // queued, so this polling interval does NOT create
+        // the old loop gap.
+        // ----------------------------------------------------
+
+        if (!didSomething)
+        {
+            Sleep(1);
+        }
+    }
+
+    // ========================================================
+    // STOP / CLEANUP
     // ========================================================
 
     waveOutReset(
         audioDevice
     );
 
-    // ========================================================
-    // CLEAN UP HEADER 0
-    // ========================================================
-
-    if (
-        headers[0].dwFlags &
-        WHDR_PREPARED)
+    for (
+        int i = 0;
+        i < AUDIO_BUFFER_COUNT;
+        ++i)
     {
-        waveOutUnprepareHeader(
-            audioDevice,
-            &headers[0],
-            sizeof(WAVEHDR)
-        );
+        if (prepared[i])
+        {
+            waveOutUnprepareHeader(
+                audioDevice,
+                &headers[i],
+                sizeof(WAVEHDR)
+            );
+
+            prepared[i] = false;
+        }
+
+        queued[i] = false;
     }
-
-    // ========================================================
-    // CLEAN UP HEADER 1
-    // ========================================================
-
-    if (
-        headers[1].dwFlags &
-        WHDR_PREPARED)
-    {
-        waveOutUnprepareHeader(
-            audioDevice,
-            &headers[1],
-            sizeof(WAVEHDR)
-        );
-    }
-
-    // ========================================================
-    // CLOSE DEVICE ONLY ON ACTUAL STOP
-    // ========================================================
 
     waveOutClose(
         audioDevice
@@ -1547,6 +1800,42 @@ LRESULT CALLBACK WindowProcedure(
                 UpdateTempoDisplay(p);
             }
 
+            else if (button == ID_PITCH_MINUS1)
+            {
+                int p = 0;
+
+                int pitch =
+                    currentPitch[p].load();
+
+                pitch -= PITCH_STEP;
+
+                if (pitch < MIN_PITCH)
+                    pitch = MIN_PITCH;
+
+                currentPitch[p] =
+                    pitch;
+
+                UpdatePitchDisplay(p);
+            }
+
+            else if (button == ID_PITCH_PLUS1)
+            {
+                int p = 0;
+
+                int pitch =
+                    currentPitch[p].load();
+
+                pitch += PITCH_STEP;
+
+                if (pitch > MAX_PITCH)
+                    pitch = MAX_PITCH;
+
+                currentPitch[p] =
+                    pitch;
+
+                UpdatePitchDisplay(p);
+            }
+
             // =================================================
             // PLAYER 2
             // =================================================
@@ -1629,6 +1918,42 @@ LRESULT CALLBACK WindowProcedure(
                     tempo;
 
                 UpdateTempoDisplay(p);
+            }
+
+            else if (button == ID_PITCH_MINUS2)
+            {
+                int p = 1;
+
+                int pitch =
+                    currentPitch[p].load();
+
+                pitch -= PITCH_STEP;
+
+                if (pitch < MIN_PITCH)
+                    pitch = MIN_PITCH;
+
+                currentPitch[p] =
+                    pitch;
+
+                UpdatePitchDisplay(p);
+            }
+
+            else if (button == ID_PITCH_PLUS2)
+            {
+                int p = 1;
+
+                int pitch =
+                    currentPitch[p].load();
+
+                pitch += PITCH_STEP;
+
+                if (pitch > MAX_PITCH)
+                    pitch = MAX_PITCH;
+
+                currentPitch[p] =
+                    pitch;
+
+                UpdatePitchDisplay(p);
             }
 
             // =================================================
@@ -1715,6 +2040,42 @@ LRESULT CALLBACK WindowProcedure(
                 UpdateTempoDisplay(p);
             }
 
+            else if (button == ID_PITCH_MINUS3)
+            {
+                int p = 2;
+
+                int pitch =
+                    currentPitch[p].load();
+
+                pitch -= PITCH_STEP;
+
+                if (pitch < MIN_PITCH)
+                    pitch = MIN_PITCH;
+
+                currentPitch[p] =
+                    pitch;
+
+                UpdatePitchDisplay(p);
+            }
+
+            else if (button == ID_PITCH_PLUS3)
+            {
+                int p = 2;
+
+                int pitch =
+                    currentPitch[p].load();
+
+                pitch += PITCH_STEP;
+
+                if (pitch > MAX_PITCH)
+                    pitch = MAX_PITCH;
+
+                currentPitch[p] =
+                    pitch;
+
+                UpdatePitchDisplay(p);
+            }
+
             // =================================================
             // PLAYER 4
             // =================================================
@@ -1797,6 +2158,42 @@ LRESULT CALLBACK WindowProcedure(
                     tempo;
 
                 UpdateTempoDisplay(p);
+            }
+
+            else if (button == ID_PITCH_MINUS4)
+            {
+                int p = 3;
+
+                int pitch =
+                    currentPitch[p].load();
+
+                pitch -= PITCH_STEP;
+
+                if (pitch < MIN_PITCH)
+                    pitch = MIN_PITCH;
+
+                currentPitch[p] =
+                    pitch;
+
+                UpdatePitchDisplay(p);
+            }
+
+            else if (button == ID_PITCH_PLUS4)
+            {
+                int p = 3;
+
+                int pitch =
+                    currentPitch[p].load();
+
+                pitch += PITCH_STEP;
+
+                if (pitch > MAX_PITCH)
+                    pitch = MAX_PITCH;
+
+                currentPitch[p] =
+                    pitch;
+
+                UpdatePitchDisplay(p);
             }
 
             break;
@@ -1906,7 +2303,7 @@ LRESULT CALLBACK WindowProcedure(
             );
 
             // ------------------------------------------------
-            // FOUR COLUMNS
+            // COLUMNS
             // ------------------------------------------------
 
             int columnWidth =
@@ -1922,7 +2319,8 @@ LRESULT CALLBACK WindowProcedure(
                 {
                     i * columnWidth + 5,
                     5,
-                    (i + 1) * columnWidth - 5,
+                    (i + 1) *
+                        columnWidth - 5,
                     rect.bottom - 5
                 };
 
@@ -2040,7 +2438,8 @@ LRESULT CALLBACK WindowProcedure(
                 {
                     i * columnWidth,
                     20,
-                    (i + 1) * columnWidth,
+                    (i + 1) *
+                        columnWidth,
                     60
                 };
 
@@ -2138,7 +2537,7 @@ int WINAPI WinMain(
         );
 
     windowClass.hCursor =
-        LoadCursor(
+        LoadCursorA(
             nullptr,
             IDC_ARROW
         );
@@ -2160,7 +2559,7 @@ int WINAPI WinMain(
             CW_USEDEFAULT,
             CW_USEDEFAULT,
             900,
-            600,
+            650,
             nullptr,
             nullptr,
             instance,
@@ -2174,7 +2573,7 @@ int WINAPI WinMain(
         window;
 
     // ========================================================
-    // INITIAL TEMPOS
+    // INITIAL VALUES
     // ========================================================
 
     for (
@@ -2184,10 +2583,22 @@ int WINAPI WinMain(
     {
         currentTempo[i] =
             120.0;
+
+        currentPitch[i] =
+            0;
+
+        playing[i] =
+            false;
+
+        looping[i] =
+            false;
+
+        stopRequested[i] =
+            false;
     }
 
     // ========================================================
-    // CREATE BUTTONS
+    // CREATE CONTROLS
     // ========================================================
 
     for (
@@ -2195,10 +2606,12 @@ int WINAPI WinMain(
         i < PLAYER_COUNT;
         ++i)
     {
-        int playID = 0;
-        int loopID = 0;
-        int tempoMinusID = 0;
-        int tempoPlusID = 0;
+        int playID;
+        int loopID;
+        int tempoMinusID;
+        int tempoPlusID;
+        int pitchMinusID;
+        int pitchPlusID;
 
         if (i == 0)
         {
@@ -2206,6 +2619,8 @@ int WINAPI WinMain(
             loopID = ID_LOOP1;
             tempoMinusID = ID_TEMPO_MINUS1;
             tempoPlusID = ID_TEMPO_PLUS1;
+            pitchMinusID = ID_PITCH_MINUS1;
+            pitchPlusID = ID_PITCH_PLUS1;
         }
         else if (i == 1)
         {
@@ -2213,6 +2628,8 @@ int WINAPI WinMain(
             loopID = ID_LOOP2;
             tempoMinusID = ID_TEMPO_MINUS2;
             tempoPlusID = ID_TEMPO_PLUS2;
+            pitchMinusID = ID_PITCH_MINUS2;
+            pitchPlusID = ID_PITCH_PLUS2;
         }
         else if (i == 2)
         {
@@ -2220,6 +2637,8 @@ int WINAPI WinMain(
             loopID = ID_LOOP3;
             tempoMinusID = ID_TEMPO_MINUS3;
             tempoPlusID = ID_TEMPO_PLUS3;
+            pitchMinusID = ID_PITCH_MINUS3;
+            pitchPlusID = ID_PITCH_PLUS3;
         }
         else
         {
@@ -2227,6 +2646,8 @@ int WINAPI WinMain(
             loopID = ID_LOOP4;
             tempoMinusID = ID_TEMPO_MINUS4;
             tempoPlusID = ID_TEMPO_PLUS4;
+            pitchMinusID = ID_PITCH_MINUS4;
+            pitchPlusID = ID_PITCH_PLUS4;
         }
 
         // ----------------------------------------------------
@@ -2241,11 +2662,13 @@ int WINAPI WinMain(
                 WS_CHILD |
                 BS_PUSHBUTTON,
                 0,
-                80,
+                75,
                 100,
-                55,
+                50,
                 window,
-                (HMENU)(INT_PTR)playID,
+                (HMENU)(
+                    INT_PTR
+                )playID,
                 instance,
                 nullptr
             );
@@ -2262,11 +2685,13 @@ int WINAPI WinMain(
                 WS_CHILD |
                 BS_PUSHBUTTON,
                 0,
-                145,
+                130,
                 100,
-                45,
+                40,
                 window,
-                (HMENU)(INT_PTR)loopID,
+                (HMENU)(
+                    INT_PTR
+                )loopID,
                 instance,
                 nullptr
             );
@@ -2283,17 +2708,19 @@ int WINAPI WinMain(
                 WS_CHILD |
                 BS_PUSHBUTTON,
                 0,
-                200,
+                180,
                 40,
                 40,
                 window,
-                (HMENU)(INT_PTR)tempoMinusID,
+                (HMENU)(
+                    INT_PTR
+                )tempoMinusID,
                 instance,
                 nullptr
             );
 
         // ----------------------------------------------------
-        // TEMPO DISPLAY
+        // TEMPO LABEL
         // ----------------------------------------------------
 
         tempoLabel[i] =
@@ -2305,7 +2732,7 @@ int WINAPI WinMain(
                 SS_CENTER |
                 SS_CENTERIMAGE,
                 0,
-                200,
+                180,
                 100,
                 40,
                 window,
@@ -2326,11 +2753,81 @@ int WINAPI WinMain(
                 WS_CHILD |
                 BS_PUSHBUTTON,
                 0,
-                245,
+                225,
                 100,
                 40,
                 window,
-                (HMENU)(INT_PTR)tempoPlusID,
+                (HMENU)(
+                    INT_PTR
+                )tempoPlusID,
+                instance,
+                nullptr
+            );
+
+        // ----------------------------------------------------
+        // PITCH MINUS
+        // ----------------------------------------------------
+
+        pitchMinusButton[i] =
+            CreateWindowA(
+                "BUTTON",
+                "-",
+                WS_VISIBLE |
+                WS_CHILD |
+                BS_PUSHBUTTON,
+                0,
+                275,
+                40,
+                40,
+                window,
+                (HMENU)(
+                    INT_PTR
+                )pitchMinusID,
+                instance,
+                nullptr
+            );
+
+        // ----------------------------------------------------
+        // PITCH LABEL
+        // ----------------------------------------------------
+
+        pitchLabel[i] =
+            CreateWindowA(
+                "STATIC",
+                "PITCH: 0",
+                WS_VISIBLE |
+                WS_CHILD |
+                SS_CENTER |
+                SS_CENTERIMAGE,
+                0,
+                275,
+                100,
+                40,
+                window,
+                nullptr,
+                instance,
+                nullptr
+            );
+
+        // ----------------------------------------------------
+        // PITCH PLUS
+        // ----------------------------------------------------
+
+        pitchPlusButton[i] =
+            CreateWindowA(
+                "BUTTON",
+                "+",
+                WS_VISIBLE |
+                WS_CHILD |
+                BS_PUSHBUTTON,
+                0,
+                320,
+                100,
+                40,
+                window,
+                (HMENU)(
+                    INT_PTR
+                )pitchPlusID,
                 instance,
                 nullptr
             );
@@ -2364,7 +2861,7 @@ int WINAPI WinMain(
     MSG message = {};
 
     while (
-        GetMessage(
+        GetMessageA(
             &message,
             nullptr,
             0,
@@ -2376,7 +2873,7 @@ int WINAPI WinMain(
             &message
         );
 
-        DispatchMessage(
+        DispatchMessageA(
             &message
         );
     }
