@@ -1,10 +1,11 @@
 #include <windows.h>
 #include <mmsystem.h>
 
-#include <algorithm>
 #include <atomic>
+#include <algorithm>
 #include <cmath>
 #include <fstream>
+#include <iostream>
 #include <random>
 #include <string>
 #include <thread>
@@ -51,7 +52,8 @@ std::mt19937 randomGenerator(12345);
 
 double noise()
 {
-    static std::uniform_real_distribution<double> distribution(-1.0, 1.0);
+    static std::uniform_real_distribution<double>
+        distribution(-1.0, 1.0);
 
     return distribution(randomGenerator);
 }
@@ -79,39 +81,39 @@ struct DrumEvent
 
 double noteFrequency(const std::string& note)
 {
-    if (note == "C3") return 130.81;
-    if (note == "D3") return 146.83;
-    if (note == "E3") return 164.81;
-    if (note == "F3") return 174.61;
-    if (note == "G3") return 196.00;
-    if (note == "A3") return 220.00;
-    if (note == "B3") return 246.94;
+    if (note == "C3")  return 130.81;
+    if (note == "D3")  return 146.83;
+    if (note == "E3")  return 164.81;
+    if (note == "F3")  return 174.61;
+    if (note == "G3")  return 196.00;
+    if (note == "A3")  return 220.00;
+    if (note == "B3")  return 246.94;
 
-    if (note == "C4") return 261.63;
+    if (note == "C4")  return 261.63;
     if (note == "C#4") return 277.18;
-    if (note == "D4") return 293.66;
+    if (note == "D4")  return 293.66;
     if (note == "D#4") return 311.13;
-    if (note == "E4") return 329.63;
-    if (note == "F4") return 349.23;
+    if (note == "E4")  return 329.63;
+    if (note == "F4")  return 349.23;
     if (note == "F#4") return 369.99;
-    if (note == "G4") return 392.00;
+    if (note == "G4")  return 392.00;
     if (note == "G#4") return 415.30;
-    if (note == "A4") return 440.00;
+    if (note == "A4")  return 440.00;
     if (note == "A#4") return 466.16;
-    if (note == "B4") return 493.88;
+    if (note == "B4")  return 493.88;
 
-    if (note == "C5") return 523.25;
+    if (note == "C5")  return 523.25;
     if (note == "C#5") return 554.37;
-    if (note == "D5") return 587.33;
+    if (note == "D5")  return 587.33;
     if (note == "D#5") return 622.25;
-    if (note == "E5") return 659.25;
-    if (note == "F5") return 698.46;
+    if (note == "E5")  return 659.25;
+    if (note == "F5")  return 698.46;
     if (note == "F#5") return 739.99;
-    if (note == "G5") return 783.99;
+    if (note == "G5")  return 783.99;
     if (note == "G#5") return 830.61;
-    if (note == "A5") return 880.00;
+    if (note == "A5")  return 880.00;
     if (note == "A#5") return 932.33;
-    if (note == "B5") return 987.77;
+    if (note == "B5")  return 987.77;
 
     return 0.0;
 }
@@ -131,8 +133,9 @@ double kick(double t)
     double envelope =
         std::exp(-7.0 * t);
 
-    return std::sin(2.0 * PI * frequency * t)
-           * envelope;
+    return std::sin(
+        2.0 * PI * frequency * t
+    ) * envelope;
 }
 
 double snare(double t)
@@ -147,8 +150,9 @@ double snare(double t)
         noise() * envelope;
 
     double body =
-        std::sin(2.0 * PI * 180.0 * t)
-        * std::exp(-20.0 * t);
+        std::sin(
+            2.0 * PI * 180.0 * t
+        ) * std::exp(-20.0 * t);
 
     return noisePart * 0.8 + body * 0.2;
 }
@@ -159,8 +163,8 @@ double closedHiHat(double t)
         return 0.0;
 
     return noise()
-           * std::exp(-45.0 * t)
-           * 0.7;
+        * std::exp(-45.0 * t)
+        * 0.7;
 }
 
 double openHiHat(double t)
@@ -169,8 +173,8 @@ double openHiHat(double t)
         return 0.0;
 
     return noise()
-           * std::exp(-5.0 * t)
-           * 0.6;
+        * std::exp(-5.0 * t)
+        * 0.6;
 }
 
 double clap(double t)
@@ -191,8 +195,8 @@ double clap(double t)
         std::exp(-14.0 * t);
 
     return noise()
-           * (burst1 + burst2 + burst3)
-           * envelope;
+        * (burst1 + burst2 + burst3)
+        * envelope;
 }
 
 double tom(double t, double frequency)
@@ -207,8 +211,9 @@ double tom(double t, double frequency)
     double envelope =
         std::exp(-7.0 * t);
 
-    return std::sin(2.0 * PI * pitch * t)
-           * envelope;
+    return std::sin(
+        2.0 * PI * pitch * t
+    ) * envelope;
 }
 
 double crash(double t)
@@ -217,8 +222,8 @@ double crash(double t)
         return 0.0;
 
     return noise()
-           * std::exp(-2.5 * t)
-           * 0.65;
+        * std::exp(-2.5 * t)
+        * 0.65;
 }
 
 double ride(double t)
@@ -233,11 +238,13 @@ double ride(double t)
         noise();
 
     double tone =
-        std::sin(2.0 * PI * 3500.0 * t);
+        std::sin(
+            2.0 * PI * 3500.0 * t
+        );
 
     return (metallic * 0.5 + tone * 0.5)
-           * envelope
-           * 0.4;
+        * envelope
+        * 0.4;
 }
 
 double rimshot(double t)
@@ -249,7 +256,9 @@ double rimshot(double t)
         std::exp(-40.0 * t);
 
     return
-        std::sin(2.0 * PI * 1200.0 * t)
+        std::sin(
+            2.0 * PI * 1200.0 * t
+        )
         * envelope
         * 0.8
         +
@@ -267,14 +276,18 @@ double cowbell(double t)
         std::exp(-15.0 * t);
 
     double tone1 =
-        std::sin(2.0 * PI * 540.0 * t);
+        std::sin(
+            2.0 * PI * 540.0 * t
+        );
 
     double tone2 =
-        std::sin(2.0 * PI * 800.0 * t);
+        std::sin(
+            2.0 * PI * 800.0 * t
+        );
 
     return (tone1 + tone2)
-           * envelope
-           * 0.4;
+        * envelope
+        * 0.4;
 }
 
 double shaker(double t)
@@ -283,8 +296,8 @@ double shaker(double t)
         return 0.0;
 
     return noise()
-           * std::exp(-18.0 * t)
-           * 0.5;
+        * std::exp(-18.0 * t)
+        * 0.5;
 }
 
 double tambourine(double t)
@@ -299,11 +312,13 @@ double tambourine(double t)
         noise();
 
     double ring =
-        std::sin(2.0 * PI * 4000.0 * t);
+        std::sin(
+            2.0 * PI * 4000.0 * t
+        );
 
     return (metal * 0.7 + ring * 0.3)
-           * envelope
-           * 0.5;
+        * envelope
+        * 0.5;
 }
 
 // ============================================================
@@ -404,10 +419,10 @@ bool LoadSong(
             double startBeat;
             double durationBeats;
 
-            songFile >>
-                noteName >>
-                startBeat >>
-                durationBeats;
+            songFile
+                >> noteName
+                >> startBeat
+                >> durationBeats;
 
             double frequency =
                 noteFrequency(noteName);
@@ -432,9 +447,9 @@ bool LoadSong(
             std::string drumType;
             double startBeat;
 
-            songFile >>
-                drumType >>
-                startBeat;
+            songFile
+                >> drumType
+                >> startBeat;
 
             double secondsPerBeat =
                 60.0 / tempo;
@@ -651,7 +666,9 @@ void PlaySong(int playerIndex)
 {
     if (playerIndex < 0 ||
         playerIndex >= PLAYER_COUNT)
+    {
         return;
+    }
 
     if (playing[playerIndex])
         return;
@@ -720,7 +737,7 @@ void PlaySong(int playerIndex)
         format.nBlockAlign;
 
     // --------------------------------------------------------
-    // OPEN AUDIO DEVICE ONCE
+    // OPEN AUDIO DEVICE
     // --------------------------------------------------------
 
     HWAVEOUT audioDevice = nullptr;
@@ -755,6 +772,10 @@ void PlaySong(int playerIndex)
 
         return;
     }
+
+    // --------------------------------------------------------
+    // PREPARE AUDIO BUFFER
+    // --------------------------------------------------------
 
     WAVEHDR header = {};
 
@@ -793,14 +814,11 @@ void PlaySong(int playerIndex)
     }
 
     // ========================================================
-    // LOOP
+    // PLAY / LOOP
     // ========================================================
 
     while (!stopRequested[playerIndex])
     {
-        // Clear DONE flag state by waiting for previous
-        // playback to finish before writing again.
-
         header.dwFlags &= ~WHDR_DONE;
 
         result =
@@ -814,11 +832,7 @@ void PlaySong(int playerIndex)
             break;
 
         // ----------------------------------------------------
-        // WAIT FOR THIS BUFFER TO FINISH
-        //
-        // We keep the audio device open here.
-        // This is much better than closing/reopening it
-        // between every loop.
+        // WAIT FOR PLAYBACK TO FINISH
         // ----------------------------------------------------
 
         while (!(header.dwFlags & WHDR_DONE))
@@ -836,13 +850,13 @@ void PlaySong(int playerIndex)
             break;
 
         // ----------------------------------------------------
-        // IF LOOP IS OFF, STOP AFTER ONE PLAY
+        // NO LOOP
         // ----------------------------------------------------
 
         if (!looping[playerIndex])
             break;
 
-        // Otherwise immediately submit the same buffer again.
+        // If looping is ON, play the same buffer again.
     }
 
     // ========================================================
@@ -884,6 +898,60 @@ void PlaySong(int playerIndex)
 
 #define ID_PLAY4  401
 #define ID_LOOP4  402
+
+// ============================================================
+// RESIZE BUTTONS
+// ============================================================
+
+void ResizePlayerButtons(HWND window)
+{
+    RECT rect;
+
+    GetClientRect(
+        window,
+        &rect
+    );
+
+    int windowWidth =
+        rect.right;
+
+    int columnWidth =
+        windowWidth / PLAYER_COUNT;
+
+    for (int i = 0;
+         i < PLAYER_COUNT;
+         ++i)
+    {
+        int x =
+            i * columnWidth + 25;
+
+        int buttonWidth =
+            columnWidth - 50;
+
+        if (buttonWidth < 100)
+            buttonWidth = 100;
+
+        // PLAY
+        MoveWindow(
+            playButton[i],
+            x,
+            80,
+            buttonWidth,
+            60,
+            TRUE
+        );
+
+        // LOOP
+        MoveWindow(
+            loopButton[i],
+            x,
+            155,
+            buttonWidth,
+            50,
+            TRUE
+        );
+    }
+}
 
 // ============================================================
 // WINDOW PROCEDURE
@@ -1146,6 +1214,23 @@ LRESULT CALLBACK WindowProcedure(
         }
 
         // ====================================================
+        // WINDOW RESIZED
+        // ====================================================
+
+        case WM_SIZE:
+        {
+            ResizePlayerButtons(window);
+
+            InvalidateRect(
+                window,
+                nullptr,
+                TRUE
+            );
+
+            break;
+        }
+
+                // ====================================================
         // PAINT
         // ====================================================
 
@@ -1366,6 +1451,10 @@ LRESULT CALLBACK WindowProcedure(
             break;
         }
 
+        // ====================================================
+        // DEFAULT
+        // ====================================================
+
         default:
         {
             return DefWindowProc(
@@ -1393,6 +1482,10 @@ int WINAPI WinMain(
     const char CLASS_NAME[] =
         "CppSongMaker";
 
+    // ========================================================
+    // REGISTER WINDOW CLASS
+    // ========================================================
+
     WNDCLASS windowClass = {};
 
     windowClass.lpfnWndProc =
@@ -1414,7 +1507,7 @@ int WINAPI WinMain(
     );
 
     // ========================================================
-    // WINDOW
+    // CREATE WINDOW
     // ========================================================
 
     HWND window =
@@ -1439,12 +1532,6 @@ int WINAPI WinMain(
     mainWindow = window;
 
     // ========================================================
-    // COLUMN WIDTH
-    // ========================================================
-
-    const int columnWidth = 225;
-
-    // ========================================================
     // CREATE BUTTONS
     // ========================================================
 
@@ -1452,14 +1539,8 @@ int WINAPI WinMain(
          i < PLAYER_COUNT;
          ++i)
     {
-        int x =
-            i * columnWidth + 25;
-
-        int playID =
-            0;
-
-        int loopID =
-            0;
+        int playID = 0;
+        int loopID = 0;
 
         if (i == 0)
         {
@@ -1483,7 +1564,7 @@ int WINAPI WinMain(
         }
 
         // ----------------------------------------------------
-        // PLAY
+        // PLAY BUTTON
         // ----------------------------------------------------
 
         playButton[i] =
@@ -1493,9 +1574,9 @@ int WINAPI WinMain(
                 WS_VISIBLE |
                 WS_CHILD |
                 BS_PUSHBUTTON,
-                x,
+                0,
                 80,
-                175,
+                100,
                 60,
                 window,
                 (HMENU)(INT_PTR)playID,
@@ -1504,7 +1585,7 @@ int WINAPI WinMain(
             );
 
         // ----------------------------------------------------
-        // LOOP
+        // LOOP BUTTON
         // ----------------------------------------------------
 
         loopButton[i] =
@@ -1514,9 +1595,9 @@ int WINAPI WinMain(
                 WS_VISIBLE |
                 WS_CHILD |
                 BS_PUSHBUTTON,
-                x,
+                0,
                 155,
-                175,
+                100,
                 50,
                 window,
                 (HMENU)(INT_PTR)loopID,
@@ -1524,6 +1605,13 @@ int WINAPI WinMain(
                 nullptr
             );
     }
+
+    // Position buttons correctly
+    // for the current window size.
+
+    ResizePlayerButtons(
+        window
+    );
 
     // ========================================================
     // SHOW WINDOW
@@ -1564,4 +1652,3 @@ int WINAPI WinMain(
 
     return 0;
 }
-
