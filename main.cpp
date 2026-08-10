@@ -1,6 +1,7 @@
 #include <windows.h>
 #include <mmsystem.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <fstream>
@@ -8,7 +9,6 @@
 #include <string>
 #include <thread>
 #include <vector>
-#include <algorithm>
 
 #pragma comment(lib, "winmm.lib")
 
@@ -61,7 +61,8 @@ std::mt19937 randomGenerator(12345);
 
 double noise()
 {
-    static std::uniform_real_distribution<double> distribution(-1.0, 1.0);
+    static std::uniform_real_distribution<double>
+        distribution(-1.0, 1.0);
 
     return distribution(randomGenerator);
 }
@@ -141,8 +142,9 @@ double kick(double t)
     double envelope =
         std::exp(-7.0 * t);
 
-    return std::sin(2.0 * PI * frequency * t)
-           * envelope;
+    return std::sin(
+        2.0 * PI * frequency * t
+    ) * envelope;
 }
 
 double snare(double t)
@@ -157,10 +159,12 @@ double snare(double t)
         noise() * envelope;
 
     double body =
-        std::sin(2.0 * PI * 180.0 * t)
-        * std::exp(-20.0 * t);
+        std::sin(
+            2.0 * PI * 180.0 * t
+        ) * std::exp(-20.0 * t);
 
-    return noisePart * 0.8 + body * 0.2;
+    return noisePart * 0.8 +
+           body * 0.2;
 }
 
 double closedHiHat(double t)
@@ -192,10 +196,16 @@ double clap(double t)
         std::exp(-80.0 * std::abs(t));
 
     double burst2 =
-        std::exp(-60.0 * std::abs(t - 0.025));
+        std::exp(
+            -60.0 *
+            std::abs(t - 0.025)
+        );
 
     double burst3 =
-        std::exp(-50.0 * std::abs(t - 0.050));
+        std::exp(
+            -50.0 *
+            std::abs(t - 0.050)
+        );
 
     double envelope =
         std::exp(-14.0 * t);
@@ -217,8 +227,9 @@ double tom(double t, double frequency)
     double envelope =
         std::exp(-7.0 * t);
 
-    return std::sin(2.0 * PI * pitch * t)
-           * envelope;
+    return std::sin(
+        2.0 * PI * pitch * t
+    ) * envelope;
 }
 
 double crash(double t)
@@ -243,11 +254,14 @@ double ride(double t)
         noise();
 
     double tone =
-        std::sin(2.0 * PI * 3500.0 * t);
+        std::sin(
+            2.0 * PI * 3500.0 * t
+        );
 
-    return (metallic * 0.5 + tone * 0.5)
-           * envelope
-           * 0.4;
+    return (
+        metallic * 0.5 +
+        tone * 0.5
+    ) * envelope * 0.4;
 }
 
 double rimshot(double t)
@@ -259,13 +273,11 @@ double rimshot(double t)
         std::exp(-40.0 * t);
 
     return
-        std::sin(2.0 * PI * 1200.0 * t)
-        * envelope
-        * 0.8
+        std::sin(
+            2.0 * PI * 1200.0 * t
+        ) * envelope * 0.8
         +
-        noise()
-        * envelope
-        * 0.3;
+        noise() * envelope * 0.3;
 }
 
 double cowbell(double t)
@@ -277,14 +289,18 @@ double cowbell(double t)
         std::exp(-15.0 * t);
 
     double tone1 =
-        std::sin(2.0 * PI * 540.0 * t);
+        std::sin(
+            2.0 * PI * 540.0 * t
+        );
 
     double tone2 =
-        std::sin(2.0 * PI * 800.0 * t);
+        std::sin(
+            2.0 * PI * 800.0 * t
+        );
 
-    return (tone1 + tone2)
-           * envelope
-           * 0.4;
+    return (
+        tone1 + tone2
+    ) * envelope * 0.4;
 }
 
 double shaker(double t)
@@ -309,11 +325,14 @@ double tambourine(double t)
         noise();
 
     double ring =
-        std::sin(2.0 * PI * 4000.0 * t);
+        std::sin(
+            2.0 * PI * 4000.0 * t
+        );
 
-    return (metal * 0.7 + ring * 0.3)
-           * envelope
-           * 0.5;
+    return (
+        metal * 0.7 +
+        ring * 0.3
+    ) * envelope * 0.5;
 }
 
 // ============================================================
@@ -324,7 +343,10 @@ double makeDrum(
     const std::string& type,
     double t)
 {
-    if (type == "KICK" || type == "BASS_DRUM")
+    if (
+        type == "KICK" ||
+        type == "BASS_DRUM"
+    )
         return kick(t);
 
     if (type == "SNARE")
@@ -371,10 +393,6 @@ double makeDrum(
 
 // ============================================================
 // LOAD SONG
-//
-// IMPORTANT:
-// Notes and drums stay in BEATS here.
-// That allows the tempo to be changed later.
 // ============================================================
 
 bool LoadSong(
@@ -464,8 +482,6 @@ bool LoadSong(
 
 // ============================================================
 // GENERATE AUDIO
-//
-// tempoOverride determines the actual playback tempo.
 // ============================================================
 
 bool GenerateAudio(
@@ -489,7 +505,8 @@ bool GenerateAudio(
         return false;
     }
 
-    double tempo = tempoOverride;
+    double tempo =
+        tempoOverride;
 
     if (tempo < MIN_TEMPO)
         tempo = MIN_TEMPO;
@@ -501,7 +518,8 @@ bool GenerateAudio(
         60.0 / tempo;
 
     double loopDuration =
-        loopLengthBeats * secondsPerBeat;
+        loopLengthBeats *
+        secondsPerBeat;
 
     int totalSamples =
         static_cast<int>(
@@ -526,24 +544,29 @@ bool GenerateAudio(
     for (const NoteEvent& note : notes)
     {
         double startSeconds =
-            note.startBeat * secondsPerBeat;
+            note.startBeat *
+            secondsPerBeat;
 
         double durationSeconds =
-            note.durationBeats * secondsPerBeat;
+            note.durationBeats *
+            secondsPerBeat;
 
         int startSample =
             static_cast<int>(
-                startSeconds * SAMPLE_RATE
+                startSeconds *
+                SAMPLE_RATE
             );
 
         int noteSamples =
             static_cast<int>(
-                durationSeconds * SAMPLE_RATE
+                durationSeconds *
+                SAMPLE_RATE
             );
 
-        for (int i = 0;
-             i < noteSamples;
-             ++i)
+        for (
+            int i = 0;
+            i < noteSamples;
+            ++i)
         {
             int index =
                 startSample + i;
@@ -569,7 +592,8 @@ bool GenerateAudio(
 
             // Release
             double remaining =
-                durationSeconds - time;
+                durationSeconds -
+                time;
 
             if (remaining < 0.05)
             {
@@ -605,11 +629,13 @@ bool GenerateAudio(
     for (const DrumEvent& drum : drums)
     {
         double startSeconds =
-            drum.startBeat * secondsPerBeat;
+            drum.startBeat *
+            secondsPerBeat;
 
         int startSample =
             static_cast<int>(
-                startSeconds * SAMPLE_RATE
+                startSeconds *
+                SAMPLE_RATE
             );
 
         int drumSamples =
@@ -618,9 +644,10 @@ bool GenerateAudio(
                 SAMPLE_RATE
             );
 
-        for (int i = 0;
-             i < drumSamples;
-             ++i)
+        for (
+            int i = 0;
+            i < drumSamples;
+            ++i)
         {
             int index =
                 startSample + i;
@@ -647,11 +674,14 @@ bool GenerateAudio(
     // CONVERT TO 16-BIT
     // ========================================================
 
-    samples.resize(totalSamples);
+    samples.resize(
+        totalSamples
+    );
 
-    for (int i = 0;
-         i < totalSamples;
-         ++i)
+    for (
+        int i = 0;
+        i < totalSamples;
+        ++i)
     {
         double value =
             std::max(
@@ -675,33 +705,35 @@ bool GenerateAudio(
 // BUTTON IDs
 // ============================================================
 
-#define ID_PLAY1 101
-#define ID_LOOP1 102
+#define ID_PLAY1        101
+#define ID_LOOP1        102
 #define ID_TEMPO_MINUS1 103
-#define ID_TEMPO_PLUS1 104
+#define ID_TEMPO_PLUS1  104
 
-#define ID_PLAY2 201
-#define ID_LOOP2 202
+#define ID_PLAY2        201
+#define ID_LOOP2        202
 #define ID_TEMPO_MINUS2 203
-#define ID_TEMPO_PLUS2 204
+#define ID_TEMPO_PLUS2  204
 
-#define ID_PLAY3 301
-#define ID_LOOP3 302
+#define ID_PLAY3        301
+#define ID_LOOP3        302
 #define ID_TEMPO_MINUS3 303
-#define ID_TEMPO_PLUS3 304
+#define ID_TEMPO_PLUS3  304
 
-#define ID_PLAY4 401
-#define ID_LOOP4 402
+#define ID_PLAY4        401
+#define ID_LOOP4        402
 #define ID_TEMPO_MINUS4 403
-#define ID_TEMPO_PLUS4 404
+#define ID_TEMPO_PLUS4  404
 
 // ============================================================
 // TEMPO DISPLAY
 // ============================================================
 
-void UpdateTempoDisplay(int playerIndex)
+void UpdateTempoDisplay(
+    int playerIndex)
 {
-    if (playerIndex < 0 ||
+    if (
+        playerIndex < 0 ||
         playerIndex >= PLAYER_COUNT)
         return;
 
@@ -715,7 +747,7 @@ void UpdateTempoDisplay(int playerIndex)
 
     char text[64];
 
-    wsprintf(
+    wsprintfA(
         text,
         "TEMPO: %d",
         tempo
@@ -731,7 +763,8 @@ void UpdateTempoDisplay(int playerIndex)
 // RESIZE BUTTONS
 // ============================================================
 
-void ResizePlayerButtons(HWND window)
+void ResizePlayerButtons(
+    HWND window)
 {
     RECT rect;
 
@@ -744,11 +777,13 @@ void ResizePlayerButtons(HWND window)
         rect.right;
 
     int columnWidth =
-        windowWidth / PLAYER_COUNT;
+        windowWidth /
+        PLAYER_COUNT;
 
-    for (int i = 0;
-         i < PLAYER_COUNT;
-         ++i)
+    for (
+        int i = 0;
+        i < PLAYER_COUNT;
+        ++i)
     {
         int x =
             i * columnWidth + 20;
@@ -765,7 +800,6 @@ void ResizePlayerButtons(HWND window)
         if (smallButtonWidth < 40)
             smallButtonWidth = 40;
 
-        // PLAY
         MoveWindow(
             playButton[i],
             x,
@@ -775,7 +809,6 @@ void ResizePlayerButtons(HWND window)
             TRUE
         );
 
-        // LOOP
         MoveWindow(
             loopButton[i],
             x,
@@ -785,7 +818,6 @@ void ResizePlayerButtons(HWND window)
             TRUE
         );
 
-        // TEMPO MINUS
         MoveWindow(
             tempoMinusButton[i],
             x,
@@ -795,7 +827,6 @@ void ResizePlayerButtons(HWND window)
             TRUE
         );
 
-        // TEMPO DISPLAY
         MoveWindow(
             tempoLabel[i],
             x + smallButtonWidth + 5,
@@ -807,7 +838,6 @@ void ResizePlayerButtons(HWND window)
             TRUE
         );
 
-        // TEMPO PLUS
         MoveWindow(
             tempoPlusButton[i],
             x,
@@ -821,11 +851,23 @@ void ResizePlayerButtons(HWND window)
 
 // ============================================================
 // PLAY ONE PLAYER
+//
+// IMPORTANT:
+// The audio device stays open for the entire playback.
+//
+// TWO buffers are queued:
+//     Buffer 0 -> current loop
+//     Buffer 1 -> next loop
+//
+// This prevents the device from becoming empty at
+// the loop boundary.
 // ============================================================
 
-void PlaySong(int playerIndex)
+void PlaySong(
+    int playerIndex)
 {
-    if (playerIndex < 0 ||
+    if (
+        playerIndex < 0 ||
         playerIndex >= PLAYER_COUNT)
         return;
 
@@ -844,7 +886,7 @@ void PlaySong(int playerIndex)
     };
 
     // ========================================================
-    // GET INITIAL TEMPO FROM SONG FILE
+    // READ INITIAL TEMPO
     // ========================================================
 
     std::vector<NoteEvent> tempNotes;
@@ -879,195 +921,310 @@ void PlaySong(int playerIndex)
         return;
     }
 
-    // If this is the first time the song is played,
-    // use the TEMPO from the text file.
-    if (currentTempo[playerIndex] <= 0.0)
+    // If the tempo has not been initialized,
+    // use the tempo from the song file.
+    if (
+        currentTempo[playerIndex].load()
+        <= 0.0)
     {
         currentTempo[playerIndex] =
             fileTempo;
     }
 
-    UpdateTempoDisplay(playerIndex);
+    UpdateTempoDisplay(
+        playerIndex
+    );
 
     // ========================================================
-    // PLAYBACK LOOP
+    // AUDIO FORMAT
     // ========================================================
 
-    while (!stopRequested[playerIndex])
+    WAVEFORMATEX format = {};
+
+    format.wFormatTag =
+        WAVE_FORMAT_PCM;
+
+    format.nChannels =
+        1;
+
+    format.nSamplesPerSec =
+        SAMPLE_RATE;
+
+    format.wBitsPerSample =
+        16;
+
+    format.nBlockAlign =
+        format.nChannels *
+        format.wBitsPerSample /
+        8;
+
+    format.nAvgBytesPerSec =
+        format.nSamplesPerSec *
+        format.nBlockAlign;
+
+    // ========================================================
+    // OPEN DEVICE ONCE
+    // ========================================================
+
+    HWAVEOUT audioDevice =
+        nullptr;
+
+    MMRESULT result =
+        waveOutOpen(
+            &audioDevice,
+            WAVE_MAPPER,
+            &format,
+            0,
+            0,
+            CALLBACK_NULL
+        );
+
+    if (
+        result != MMSYSERR_NOERROR)
     {
-        std::vector<short> samples;
+        MessageBoxA(
+            mainWindow,
+            "Could not open audio device.",
+            "Audio Error",
+            MB_OK | MB_ICONERROR
+        );
 
-        // Read the tempo at the beginning of each loop.
-        double tempo =
-            currentTempo[playerIndex].load();
+        playing[playerIndex] = false;
 
-        if (!GenerateAudio(
-            filenames[playerIndex],
-            tempo,
-            samples))
-        {
-            MessageBoxA(
-                mainWindow,
-                "Could not generate the song audio.",
-                "Song Error",
-                MB_OK | MB_ICONERROR
-            );
+        PostMessage(
+            mainWindow,
+            WM_USER + playerIndex + 1,
+            0,
+            0
+        );
 
-            break;
-        }
+        return;
+    }
 
-        if (stopRequested[playerIndex])
-            break;
+    // ========================================================
+    // GENERATE FIRST TWO BUFFERS
+    //
+    // Both are generated before playback begins.
+    // This gives waveOut two buffers to work with.
+    // ========================================================
 
-        // ====================================================
-        // AUDIO FORMAT
-        // ====================================================
+    std::vector<short> audioBuffers[2];
 
-        WAVEFORMATEX format = {};
+    double initialTempo =
+        currentTempo[playerIndex].load();
 
-        format.wFormatTag =
-            WAVE_FORMAT_PCM;
-
-        format.nChannels =
-            1;
-
-        format.nSamplesPerSec =
-            SAMPLE_RATE;
-
-        format.wBitsPerSample =
-            16;
-
-        format.nBlockAlign =
-            format.nChannels *
-            format.wBitsPerSample /
-            8;
-
-        format.nAvgBytesPerSec =
-            format.nSamplesPerSec *
-            format.nBlockAlign;
-
-        // ====================================================
-        // OPEN AUDIO DEVICE
-        // ====================================================
-
-        HWAVEOUT audioDevice = nullptr;
-
-        MMRESULT result =
-            waveOutOpen(
-                &audioDevice,
-                WAVE_MAPPER,
-                &format,
-                0,
-                0,
-                CALLBACK_NULL
-            );
-
-        if (result != MMSYSERR_NOERROR)
-        {
-            MessageBoxA(
-                mainWindow,
-                "Could not open audio device.",
-                "Audio Error",
-                MB_OK | MB_ICONERROR
-            );
-
-            break;
-        }
-
-        // ====================================================
-        // AUDIO BUFFER
-        // ====================================================
-
-        WAVEHDR header = {};
-
-        header.lpData =
-            reinterpret_cast<LPSTR>(
-                samples.data()
-            );
-
-        header.dwBufferLength =
-            static_cast<DWORD>(
-                samples.size() *
-                sizeof(short)
-            );
-
-        result =
-            waveOutPrepareHeader(
-                audioDevice,
-                &header,
-                sizeof(header)
-            );
-
-        if (result != MMSYSERR_NOERROR)
-        {
-            waveOutClose(
-                audioDevice
-            );
-
-            break;
-        }
-
-        // ====================================================
-        // PLAY BUFFER
-        // ====================================================
-
-        result =
-            waveOutWrite(
-                audioDevice,
-                &header,
-                sizeof(header)
-            );
-
-        if (result != MMSYSERR_NOERROR)
-        {
-            waveOutUnprepareHeader(
-                audioDevice,
-                &header,
-                sizeof(header)
-            );
-
-            waveOutClose(
-                audioDevice
-            );
-
-            break;
-        }
-
-        // ====================================================
-        // WAIT FOR PLAYBACK
-        // ====================================================
-
-        while (!(header.dwFlags & WHDR_DONE))
-        {
-            if (stopRequested[playerIndex])
-            {
-                waveOutReset(
-                    audioDevice
-                );
-
-                break;
-            }
-
-            Sleep(1);
-        }
-
-        // ====================================================
-        // CLEANUP THIS LOOP
-        // ====================================================
-
-        waveOutReset(
+    if (!GenerateAudio(
+        filenames[playerIndex],
+        initialTempo,
+        audioBuffers[0]))
+    {
+        waveOutClose(
             audioDevice
         );
 
+        playing[playerIndex] = false;
+
+        PostMessage(
+            mainWindow,
+            WM_USER + playerIndex + 1,
+            0,
+            0
+        );
+
+        return;
+    }
+
+    if (looping[playerIndex])
+    {
+        if (!GenerateAudio(
+            filenames[playerIndex],
+            currentTempo[playerIndex].load(),
+            audioBuffers[1]))
+        {
+            waveOutClose(
+                audioDevice
+            );
+
+            playing[playerIndex] = false;
+
+            PostMessage(
+                mainWindow,
+                WM_USER + playerIndex + 1,
+                0,
+                0
+            );
+
+            return;
+        }
+    }
+    else
+    {
+        // Just make an empty buffer.
+        // It will not be submitted unless needed.
+        audioBuffers[1].clear();
+    }
+
+    // ========================================================
+    // WAVE HEADERS
+    // ========================================================
+
+    WAVEHDR headers[2] = {};
+
+    headers[0].lpData =
+        reinterpret_cast<LPSTR>(
+            audioBuffers[0].data()
+        );
+
+    headers[0].dwBufferLength =
+        static_cast<DWORD>(
+            audioBuffers[0].size()
+            * sizeof(short)
+        );
+
+    // ========================================================
+    // PREPARE FIRST BUFFER
+    // ========================================================
+
+    result =
+        waveOutPrepareHeader(
+            audioDevice,
+            &headers[0],
+            sizeof(WAVEHDR)
+        );
+
+    if (
+        result != MMSYSERR_NOERROR)
+    {
+        waveOutClose(
+            audioDevice
+        );
+
+        playing[playerIndex] = false;
+
+        PostMessage(
+            mainWindow,
+            WM_USER + playerIndex + 1,
+            0,
+            0
+        );
+
+        return;
+    }
+
+    // ========================================================
+    // PLAY FIRST BUFFER
+    // ========================================================
+
+    result =
+        waveOutWrite(
+            audioDevice,
+            &headers[0],
+            sizeof(WAVEHDR)
+        );
+
+    if (
+        result != MMSYSERR_NOERROR)
+    {
         waveOutUnprepareHeader(
             audioDevice,
-            &header,
-            sizeof(header)
+            &headers[0],
+            sizeof(WAVEHDR)
         );
 
         waveOutClose(
             audioDevice
         );
+
+        playing[playerIndex] = false;
+
+        PostMessage(
+            mainWindow,
+            WM_USER + playerIndex + 1,
+            0,
+            0
+        );
+
+        return;
+    }
+
+    // ========================================================
+    // SECOND BUFFER
+    //
+    // If looping is already enabled, queue it immediately.
+    // ========================================================
+
+    bool secondBufferQueued =
+        false;
+
+    if (
+        looping[playerIndex] &&
+        !audioBuffers[1].empty())
+    {
+        headers[1].lpData =
+            reinterpret_cast<LPSTR>(
+                audioBuffers[1].data()
+            );
+
+        headers[1].dwBufferLength =
+            static_cast<DWORD>(
+                audioBuffers[1].size()
+                * sizeof(short)
+            );
+
+        result =
+            waveOutPrepareHeader(
+                audioDevice,
+                &headers[1],
+                sizeof(WAVEHDR)
+            );
+
+        if (
+            result == MMSYSERR_NOERROR)
+        {
+            result =
+                waveOutWrite(
+                    audioDevice,
+                    &headers[1],
+                    sizeof(WAVEHDR)
+                );
+
+            if (
+                result == MMSYSERR_NOERROR)
+            {
+                secondBufferQueued = true;
+            }
+            else
+            {
+                waveOutUnprepareHeader(
+                    audioDevice,
+                    &headers[1],
+                    sizeof(WAVEHDR)
+                );
+            }
+        }
+    }
+
+    // ========================================================
+    // PLAYBACK MANAGEMENT
+    // ========================================================
+
+    int currentBuffer = 0;
+
+    while (!stopRequested[playerIndex])
+    {
+        // Wait until the current buffer finishes.
+        while (
+            !(headers[currentBuffer].dwFlags
+              & WHDR_DONE))
+        {
+            if (
+                stopRequested[playerIndex])
+            {
+                break;
+            }
+
+            Sleep(1);
+        }
 
         if (stopRequested[playerIndex])
             break;
@@ -1077,20 +1234,203 @@ void PlaySong(int playerIndex)
         // ====================================================
 
         if (!looping[playerIndex])
+        {
+            break;
+        }
+
+        // ====================================================
+        // THE OTHER BUFFER SHOULD ALREADY BE PLAYING
+        // ====================================================
+
+        int finishedBuffer =
+            currentBuffer;
+
+        int nextBuffer =
+            1 - currentBuffer;
+
+        // ====================================================
+        // If the second buffer was not successfully queued,
+        // we need to prepare it now.
+        //
+        // Normally this is already playing.
+        // ====================================================
+
+        if (
+            finishedBuffer == 0 &&
+            !secondBufferQueued)
+        {
+            break;
+        }
+
+        // ====================================================
+        // Wait for the next buffer to finish if necessary.
+        //
+        // This case normally doesn't occur because buffer 1
+        // was queued before buffer 0 finished.
+        // ====================================================
+
+        if (
+            nextBuffer == 1 &&
+            secondBufferQueued)
+        {
+            // Buffer 1 is already queued.
+        }
+
+        // ====================================================
+        // Wait until the finished buffer is completely done.
+        // ====================================================
+
+        while (
+            !(headers[finishedBuffer].dwFlags
+              & WHDR_DONE))
+        {
+            if (
+                stopRequested[playerIndex])
+                break;
+
+            Sleep(1);
+        }
+
+        if (stopRequested[playerIndex])
             break;
 
         // ====================================================
-        // LOOP ON
+        // GENERATE THE NEXT VERSION OF THE FINISHED BUFFER
         //
-        // The next pass regenerates the audio using the
-        // CURRENT tempo. This means pressing + or -
-        // changes the next loop.
+        // This happens while the other buffer is playing.
+        //
+        // Tempo changes therefore apply to a future loop.
         // ====================================================
+
+        std::vector<short> newSamples;
+
+        double tempo =
+            currentTempo[playerIndex].load();
+
+        if (!GenerateAudio(
+            filenames[playerIndex],
+            tempo,
+            newSamples))
+        {
+            break;
+        }
+
+        // ====================================================
+        // UNPREPARE THE FINISHED BUFFER
+        // ====================================================
+
+        waveOutUnprepareHeader(
+            audioDevice,
+            &headers[finishedBuffer],
+            sizeof(WAVEHDR)
+        );
+
+        // ====================================================
+        // REPLACE ITS AUDIO
+        // ====================================================
+
+        audioBuffers[finishedBuffer] =
+            std::move(newSamples);
+
+        headers[finishedBuffer] = {};
+
+        headers[finishedBuffer].lpData =
+            reinterpret_cast<LPSTR>(
+                audioBuffers[finishedBuffer].data()
+            );
+
+        headers[finishedBuffer].dwBufferLength =
+            static_cast<DWORD>(
+                audioBuffers[finishedBuffer].size()
+                * sizeof(short)
+            );
+
+        // ====================================================
+        // PREPARE IT AGAIN
+        // ====================================================
+
+        result =
+            waveOutPrepareHeader(
+                audioDevice,
+                &headers[finishedBuffer],
+                sizeof(WAVEHDR)
+            );
+
+        if (
+            result != MMSYSERR_NOERROR)
+        {
+            break;
+        }
+
+        // ====================================================
+        // QUEUE IT AGAIN
+        //
+        // The other buffer is already playing, so this one
+        // becomes the buffer after it.
+        // ====================================================
+
+        result =
+            waveOutWrite(
+                audioDevice,
+                &headers[finishedBuffer],
+                sizeof(WAVEHDR)
+            );
+
+        if (
+            result != MMSYSERR_NOERROR)
+        {
+            break;
+        }
+
+        currentBuffer =
+            finishedBuffer;
     }
 
     // ========================================================
-    // FINISHED
+    // STOP PLAYBACK
     // ========================================================
+
+    waveOutReset(
+        audioDevice
+    );
+
+    // ========================================================
+    // CLEAN UP HEADER 0
+    // ========================================================
+
+    if (
+        headers[0].dwFlags &
+        WHDR_PREPARED)
+    {
+        waveOutUnprepareHeader(
+            audioDevice,
+            &headers[0],
+            sizeof(WAVEHDR)
+        );
+    }
+
+    // ========================================================
+    // CLEAN UP HEADER 1
+    // ========================================================
+
+    if (
+        headers[1].dwFlags &
+        WHDR_PREPARED)
+    {
+        waveOutUnprepareHeader(
+            audioDevice,
+            &headers[1],
+            sizeof(WAVEHDR)
+        );
+    }
+
+    // ========================================================
+    // CLOSE DEVICE ONLY ON ACTUAL STOP
+    // ========================================================
+
+    waveOutClose(
+        audioDevice
+    );
 
     playing[playerIndex] = false;
 
@@ -1176,7 +1516,7 @@ LRESULT CALLBACK WindowProcedure(
                 int p = 0;
 
                 double tempo =
-                    currentTempo[p];
+                    currentTempo[p].load();
 
                 tempo -= TEMPO_STEP;
 
@@ -1194,7 +1534,7 @@ LRESULT CALLBACK WindowProcedure(
                 int p = 0;
 
                 double tempo =
-                    currentTempo[p];
+                    currentTempo[p].load();
 
                 tempo += TEMPO_STEP;
 
@@ -1260,7 +1600,7 @@ LRESULT CALLBACK WindowProcedure(
                 int p = 1;
 
                 double tempo =
-                    currentTempo[p];
+                    currentTempo[p].load();
 
                 tempo -= TEMPO_STEP;
 
@@ -1278,7 +1618,7 @@ LRESULT CALLBACK WindowProcedure(
                 int p = 1;
 
                 double tempo =
-                    currentTempo[p];
+                    currentTempo[p].load();
 
                 tempo += TEMPO_STEP;
 
@@ -1344,7 +1684,7 @@ LRESULT CALLBACK WindowProcedure(
                 int p = 2;
 
                 double tempo =
-                    currentTempo[p];
+                    currentTempo[p].load();
 
                 tempo -= TEMPO_STEP;
 
@@ -1362,7 +1702,7 @@ LRESULT CALLBACK WindowProcedure(
                 int p = 2;
 
                 double tempo =
-                    currentTempo[p];
+                    currentTempo[p].load();
 
                 tempo += TEMPO_STEP;
 
@@ -1428,7 +1768,7 @@ LRESULT CALLBACK WindowProcedure(
                 int p = 3;
 
                 double tempo =
-                    currentTempo[p];
+                    currentTempo[p].load();
 
                 tempo -= TEMPO_STEP;
 
@@ -1446,7 +1786,7 @@ LRESULT CALLBACK WindowProcedure(
                 int p = 3;
 
                 double tempo =
-                    currentTempo[p];
+                    currentTempo[p].load();
 
                 tempo += TEMPO_STEP;
 
@@ -1566,16 +1906,17 @@ LRESULT CALLBACK WindowProcedure(
             );
 
             // ------------------------------------------------
-            // COLUMNS
+            // FOUR COLUMNS
             // ------------------------------------------------
 
             int columnWidth =
                 rect.right /
                 PLAYER_COUNT;
 
-            for (int i = 0;
-                 i < PLAYER_COUNT;
-                 ++i)
+            for (
+                int i = 0;
+                i < PLAYER_COUNT;
+                ++i)
             {
                 RECT columnRect =
                 {
@@ -1690,9 +2031,10 @@ LRESULT CALLBACK WindowProcedure(
                 "IV"
             };
 
-            for (int i = 0;
-                 i < PLAYER_COUNT;
-                 ++i)
+            for (
+                int i = 0;
+                i < PLAYER_COUNT;
+                ++i)
             {
                 RECT titleRect =
                 {
@@ -1735,9 +2077,10 @@ LRESULT CALLBACK WindowProcedure(
 
         case WM_DESTROY:
         {
-            for (int i = 0;
-                 i < PLAYER_COUNT;
-                 ++i)
+            for (
+                int i = 0;
+                i < PLAYER_COUNT;
+                ++i)
             {
                 stopRequested[i] = true;
             }
@@ -1749,7 +2092,7 @@ LRESULT CALLBACK WindowProcedure(
 
         default:
         {
-            return DefWindowProc(
+            return DefWindowProcA(
                 window,
                 message,
                 wParam,
@@ -1832,25 +2175,25 @@ int WINAPI WinMain(
 
     // ========================================================
     // INITIAL TEMPOS
-    //
-    // Start at 120 until the song is played.
-    // PlaySong will read TEMPO from the song file.
     // ========================================================
 
-    for (int i = 0;
-         i < PLAYER_COUNT;
-         ++i)
+    for (
+        int i = 0;
+        i < PLAYER_COUNT;
+        ++i)
     {
-        currentTempo[i] = 120.0;
+        currentTempo[i] =
+            120.0;
     }
 
     // ========================================================
     // CREATE BUTTONS
     // ========================================================
 
-    for (int i = 0;
-         i < PLAYER_COUNT;
-         ++i)
+    for (
+        int i = 0;
+        i < PLAYER_COUNT;
+        ++i)
     {
         int playID = 0;
         int loopID = 0;
