@@ -2,14 +2,13 @@
 #include <mmsystem.h>
 
 #include <atomic>
-#include <algorithm>
 #include <cmath>
 #include <fstream>
-#include <iostream>
 #include <random>
 #include <string>
 #include <thread>
 #include <vector>
+#include <algorithm>
 
 #pragma comment(lib, "winmm.lib")
 
@@ -21,6 +20,10 @@ const int SAMPLE_RATE = 44100;
 const double PI = 3.14159265358979323846;
 
 const int PLAYER_COUNT = 4;
+
+const double MIN_TEMPO = 40.0;
+const double MAX_TEMPO = 240.0;
+const double TEMPO_STEP = 5.0;
 
 // ============================================================
 // COLORS
@@ -39,8 +42,14 @@ std::atomic<bool> playing[PLAYER_COUNT] = {};
 std::atomic<bool> looping[PLAYER_COUNT] = {};
 std::atomic<bool> stopRequested[PLAYER_COUNT] = {};
 
+std::atomic<double> currentTempo[PLAYER_COUNT] = {};
+
 HWND playButton[PLAYER_COUNT] = {};
 HWND loopButton[PLAYER_COUNT] = {};
+
+HWND tempoMinusButton[PLAYER_COUNT] = {};
+HWND tempoPlusButton[PLAYER_COUNT] = {};
+HWND tempoLabel[PLAYER_COUNT] = {};
 
 HWND mainWindow = nullptr;
 
@@ -52,8 +61,7 @@ std::mt19937 randomGenerator(12345);
 
 double noise()
 {
-    static std::uniform_real_distribution<double>
-        distribution(-1.0, 1.0);
+    static std::uniform_real_distribution<double> distribution(-1.0, 1.0);
 
     return distribution(randomGenerator);
 }
@@ -64,14 +72,14 @@ double noise()
 
 struct NoteEvent
 {
-    double start;
-    double duration;
+    double startBeat;
+    double durationBeats;
     double frequency;
 };
 
 struct DrumEvent
 {
-    double start;
+    double startBeat;
     std::string type;
 };
 
@@ -133,9 +141,8 @@ double kick(double t)
     double envelope =
         std::exp(-7.0 * t);
 
-    return std::sin(
-        2.0 * PI * frequency * t
-    ) * envelope;
+    return std::sin(2.0 * PI * frequency * t)
+           * envelope;
 }
 
 double snare(double t)
@@ -150,9 +157,8 @@ double snare(double t)
         noise() * envelope;
 
     double body =
-        std::sin(
-            2.0 * PI * 180.0 * t
-        ) * std::exp(-20.0 * t);
+        std::sin(2.0 * PI * 180.0 * t)
+        * std::exp(-20.0 * t);
 
     return noisePart * 0.8 + body * 0.2;
 }
@@ -163,8 +169,8 @@ double closedHiHat(double t)
         return 0.0;
 
     return noise()
-        * std::exp(-45.0 * t)
-        * 0.7;
+           * std::exp(-45.0 * t)
+           * 0.7;
 }
 
 double openHiHat(double t)
@@ -173,8 +179,8 @@ double openHiHat(double t)
         return 0.0;
 
     return noise()
-        * std::exp(-5.0 * t)
-        * 0.6;
+           * std::exp(-5.0 * t)
+           * 0.6;
 }
 
 double clap(double t)
@@ -195,8 +201,8 @@ double clap(double t)
         std::exp(-14.0 * t);
 
     return noise()
-        * (burst1 + burst2 + burst3)
-        * envelope;
+           * (burst1 + burst2 + burst3)
+           * envelope;
 }
 
 double tom(double t, double frequency)
@@ -211,9 +217,8 @@ double tom(double t, double frequency)
     double envelope =
         std::exp(-7.0 * t);
 
-    return std::sin(
-        2.0 * PI * pitch * t
-    ) * envelope;
+    return std::sin(2.0 * PI * pitch * t)
+           * envelope;
 }
 
 double crash(double t)
@@ -222,8 +227,8 @@ double crash(double t)
         return 0.0;
 
     return noise()
-        * std::exp(-2.5 * t)
-        * 0.65;
+           * std::exp(-2.5 * t)
+           * 0.65;
 }
 
 double ride(double t)
@@ -238,13 +243,11 @@ double ride(double t)
         noise();
 
     double tone =
-        std::sin(
-            2.0 * PI * 3500.0 * t
-        );
+        std::sin(2.0 * PI * 3500.0 * t);
 
     return (metallic * 0.5 + tone * 0.5)
-        * envelope
-        * 0.4;
+           * envelope
+           * 0.4;
 }
 
 double rimshot(double t)
@@ -256,9 +259,7 @@ double rimshot(double t)
         std::exp(-40.0 * t);
 
     return
-        std::sin(
-            2.0 * PI * 1200.0 * t
-        )
+        std::sin(2.0 * PI * 1200.0 * t)
         * envelope
         * 0.8
         +
@@ -276,18 +277,14 @@ double cowbell(double t)
         std::exp(-15.0 * t);
 
     double tone1 =
-        std::sin(
-            2.0 * PI * 540.0 * t
-        );
+        std::sin(2.0 * PI * 540.0 * t);
 
     double tone2 =
-        std::sin(
-            2.0 * PI * 800.0 * t
-        );
+        std::sin(2.0 * PI * 800.0 * t);
 
     return (tone1 + tone2)
-        * envelope
-        * 0.4;
+           * envelope
+           * 0.4;
 }
 
 double shaker(double t)
@@ -296,8 +293,8 @@ double shaker(double t)
         return 0.0;
 
     return noise()
-        * std::exp(-18.0 * t)
-        * 0.5;
+           * std::exp(-18.0 * t)
+           * 0.5;
 }
 
 double tambourine(double t)
@@ -312,13 +309,11 @@ double tambourine(double t)
         noise();
 
     double ring =
-        std::sin(
-            2.0 * PI * 4000.0 * t
-        );
+        std::sin(2.0 * PI * 4000.0 * t);
 
     return (metal * 0.7 + ring * 0.3)
-        * envelope
-        * 0.5;
+           * envelope
+           * 0.5;
 }
 
 // ============================================================
@@ -376,6 +371,10 @@ double makeDrum(
 
 // ============================================================
 // LOAD SONG
+//
+// IMPORTANT:
+// Notes and drums stay in BEATS here.
+// That allows the tempo to be changed later.
 // ============================================================
 
 bool LoadSong(
@@ -401,8 +400,11 @@ bool LoadSong(
         {
             songFile >> tempo;
 
-            if (tempo <= 0.0)
-                tempo = 120.0;
+            if (tempo < MIN_TEMPO)
+                tempo = MIN_TEMPO;
+
+            if (tempo > MAX_TEMPO)
+                tempo = MAX_TEMPO;
         }
 
         else if (command == "LENGTH")
@@ -419,23 +421,20 @@ bool LoadSong(
             double startBeat;
             double durationBeats;
 
-            songFile
-                >> noteName
-                >> startBeat
-                >> durationBeats;
+            songFile >>
+                noteName >>
+                startBeat >>
+                durationBeats;
 
             double frequency =
                 noteFrequency(noteName);
 
             if (frequency > 0.0)
             {
-                double secondsPerBeat =
-                    60.0 / tempo;
-
                 notes.push_back(
                     {
-                        startBeat * secondsPerBeat,
-                        durationBeats * secondsPerBeat,
+                        startBeat,
+                        durationBeats,
                         frequency
                     }
                 );
@@ -447,16 +446,13 @@ bool LoadSong(
             std::string drumType;
             double startBeat;
 
-            songFile
-                >> drumType
-                >> startBeat;
-
-            double secondsPerBeat =
-                60.0 / tempo;
+            songFile >>
+                drumType >>
+                startBeat;
 
             drums.push_back(
                 {
-                    startBeat * secondsPerBeat,
+                    startBeat,
                     drumType
                 }
             );
@@ -468,27 +464,38 @@ bool LoadSong(
 
 // ============================================================
 // GENERATE AUDIO
+//
+// tempoOverride determines the actual playback tempo.
 // ============================================================
 
 bool GenerateAudio(
     const char* filename,
+    double tempoOverride,
     std::vector<short>& samples)
 {
     std::vector<NoteEvent> notes;
     std::vector<DrumEvent> drums;
 
-    double tempo;
+    double fileTempo;
     double loopLengthBeats;
 
     if (!LoadSong(
         filename,
         notes,
         drums,
-        tempo,
+        fileTempo,
         loopLengthBeats))
     {
         return false;
     }
+
+    double tempo = tempoOverride;
+
+    if (tempo < MIN_TEMPO)
+        tempo = MIN_TEMPO;
+
+    if (tempo > MAX_TEMPO)
+        tempo = MAX_TEMPO;
 
     double secondsPerBeat =
         60.0 / tempo;
@@ -512,22 +519,26 @@ bool GenerateAudio(
         0.0
     );
 
-    // --------------------------------------------------------
+    // ========================================================
     // MELODY
-    // --------------------------------------------------------
+    // ========================================================
 
     for (const NoteEvent& note : notes)
     {
+        double startSeconds =
+            note.startBeat * secondsPerBeat;
+
+        double durationSeconds =
+            note.durationBeats * secondsPerBeat;
+
         int startSample =
             static_cast<int>(
-                note.start *
-                SAMPLE_RATE
+                startSeconds * SAMPLE_RATE
             );
 
         int noteSamples =
             static_cast<int>(
-                note.duration *
-                SAMPLE_RATE
+                durationSeconds * SAMPLE_RATE
             );
 
         for (int i = 0;
@@ -558,7 +569,7 @@ bool GenerateAudio(
 
             // Release
             double remaining =
-                note.duration - time;
+                durationSeconds - time;
 
             if (remaining < 0.05)
             {
@@ -587,16 +598,18 @@ bool GenerateAudio(
         }
     }
 
-    // --------------------------------------------------------
+    // ========================================================
     // DRUMS
-    // --------------------------------------------------------
+    // ========================================================
 
     for (const DrumEvent& drum : drums)
     {
+        double startSeconds =
+            drum.startBeat * secondsPerBeat;
+
         int startSample =
             static_cast<int>(
-                drum.start *
-                SAMPLE_RATE
+                startSeconds * SAMPLE_RATE
             );
 
         int drumSamples =
@@ -630,9 +643,9 @@ bool GenerateAudio(
         }
     }
 
-    // --------------------------------------------------------
+    // ========================================================
     // CONVERT TO 16-BIT
-    // --------------------------------------------------------
+    // ========================================================
 
     samples.resize(totalSamples);
 
@@ -659,245 +672,60 @@ bool GenerateAudio(
 }
 
 // ============================================================
-// PLAY ONE PLAYER
-// ============================================================
-
-void PlaySong(int playerIndex)
-{
-    if (playerIndex < 0 ||
-        playerIndex >= PLAYER_COUNT)
-    {
-        return;
-    }
-
-    if (playing[playerIndex])
-        return;
-
-    playing[playerIndex] = true;
-    stopRequested[playerIndex] = false;
-
-    const char* filenames[PLAYER_COUNT] =
-    {
-        "song1.txt",
-        "song2.txt",
-        "song3.txt",
-        "song4.txt"
-    };
-
-    std::vector<short> samples;
-
-    if (!GenerateAudio(
-        filenames[playerIndex],
-        samples))
-    {
-        MessageBox(
-            mainWindow,
-            "Could not open or generate the song file.",
-            "Song Error",
-            MB_OK | MB_ICONERROR
-        );
-
-        playing[playerIndex] = false;
-
-        PostMessage(
-            mainWindow,
-            WM_USER + playerIndex + 1,
-            0,
-            0
-        );
-
-        return;
-    }
-
-    // --------------------------------------------------------
-    // AUDIO FORMAT
-    // --------------------------------------------------------
-
-    WAVEFORMATEX format = {};
-
-    format.wFormatTag =
-        WAVE_FORMAT_PCM;
-
-    format.nChannels =
-        1;
-
-    format.nSamplesPerSec =
-        SAMPLE_RATE;
-
-    format.wBitsPerSample =
-        16;
-
-    format.nBlockAlign =
-        format.nChannels *
-        format.wBitsPerSample /
-        8;
-
-    format.nAvgBytesPerSec =
-        format.nSamplesPerSec *
-        format.nBlockAlign;
-
-    // --------------------------------------------------------
-    // OPEN AUDIO DEVICE
-    // --------------------------------------------------------
-
-    HWAVEOUT audioDevice = nullptr;
-
-    MMRESULT result =
-        waveOutOpen(
-            &audioDevice,
-            WAVE_MAPPER,
-            &format,
-            0,
-            0,
-            CALLBACK_NULL
-        );
-
-    if (result != MMSYSERR_NOERROR)
-    {
-        MessageBox(
-            mainWindow,
-            "Could not open audio device.",
-            "Audio Error",
-            MB_OK | MB_ICONERROR
-        );
-
-        playing[playerIndex] = false;
-
-        PostMessage(
-            mainWindow,
-            WM_USER + playerIndex + 1,
-            0,
-            0
-        );
-
-        return;
-    }
-
-    // --------------------------------------------------------
-    // PREPARE AUDIO BUFFER
-    // --------------------------------------------------------
-
-    WAVEHDR header = {};
-
-    header.lpData =
-        reinterpret_cast<LPSTR>(
-            samples.data()
-        );
-
-    header.dwBufferLength =
-        static_cast<DWORD>(
-            samples.size() *
-            sizeof(short)
-        );
-
-    result =
-        waveOutPrepareHeader(
-            audioDevice,
-            &header,
-            sizeof(header)
-        );
-
-    if (result != MMSYSERR_NOERROR)
-    {
-        waveOutClose(audioDevice);
-
-        playing[playerIndex] = false;
-
-        PostMessage(
-            mainWindow,
-            WM_USER + playerIndex + 1,
-            0,
-            0
-        );
-
-        return;
-    }
-
-    // ========================================================
-    // PLAY / LOOP
-    // ========================================================
-
-    while (!stopRequested[playerIndex])
-    {
-        header.dwFlags &= ~WHDR_DONE;
-
-        result =
-            waveOutWrite(
-                audioDevice,
-                &header,
-                sizeof(header)
-            );
-
-        if (result != MMSYSERR_NOERROR)
-            break;
-
-        // ----------------------------------------------------
-        // WAIT FOR PLAYBACK TO FINISH
-        // ----------------------------------------------------
-
-        while (!(header.dwFlags & WHDR_DONE))
-        {
-            if (stopRequested[playerIndex])
-            {
-                waveOutReset(audioDevice);
-                break;
-            }
-
-            Sleep(1);
-        }
-
-        if (stopRequested[playerIndex])
-            break;
-
-        // ----------------------------------------------------
-        // NO LOOP
-        // ----------------------------------------------------
-
-        if (!looping[playerIndex])
-            break;
-
-        // If looping is ON, play the same buffer again.
-    }
-
-    // ========================================================
-    // CLEANUP
-    // ========================================================
-
-    waveOutReset(audioDevice);
-
-    waveOutUnprepareHeader(
-        audioDevice,
-        &header,
-        sizeof(header)
-    );
-
-    waveOutClose(audioDevice);
-
-    playing[playerIndex] = false;
-
-    PostMessage(
-        mainWindow,
-        WM_USER + playerIndex + 1,
-        0,
-        0
-    );
-}
-
-// ============================================================
 // BUTTON IDs
 // ============================================================
 
-#define ID_PLAY1  101
-#define ID_LOOP1  102
+#define ID_PLAY1 101
+#define ID_LOOP1 102
+#define ID_TEMPO_MINUS1 103
+#define ID_TEMPO_PLUS1 104
 
-#define ID_PLAY2  201
-#define ID_LOOP2  202
+#define ID_PLAY2 201
+#define ID_LOOP2 202
+#define ID_TEMPO_MINUS2 203
+#define ID_TEMPO_PLUS2 204
 
-#define ID_PLAY3  301
-#define ID_LOOP3  302
+#define ID_PLAY3 301
+#define ID_LOOP3 302
+#define ID_TEMPO_MINUS3 303
+#define ID_TEMPO_PLUS3 304
 
-#define ID_PLAY4  401
-#define ID_LOOP4  402
+#define ID_PLAY4 401
+#define ID_LOOP4 402
+#define ID_TEMPO_MINUS4 403
+#define ID_TEMPO_PLUS4 404
+
+// ============================================================
+// TEMPO DISPLAY
+// ============================================================
+
+void UpdateTempoDisplay(int playerIndex)
+{
+    if (playerIndex < 0 ||
+        playerIndex >= PLAYER_COUNT)
+        return;
+
+    if (!tempoLabel[playerIndex])
+        return;
+
+    int tempo =
+        static_cast<int>(
+            currentTempo[playerIndex].load()
+        );
+
+    char text[64];
+
+    wsprintf(
+        text,
+        "TEMPO: %d",
+        tempo
+    );
+
+    SetWindowTextA(
+        tempoLabel[playerIndex],
+        text
+    );
+}
 
 // ============================================================
 // RESIZE BUTTONS
@@ -923,13 +751,19 @@ void ResizePlayerButtons(HWND window)
          ++i)
     {
         int x =
-            i * columnWidth + 25;
+            i * columnWidth + 20;
 
         int buttonWidth =
-            columnWidth - 50;
+            columnWidth - 40;
 
-        if (buttonWidth < 100)
-            buttonWidth = 100;
+        if (buttonWidth < 80)
+            buttonWidth = 80;
+
+        int smallButtonWidth =
+            (buttonWidth - 10) / 2;
+
+        if (smallButtonWidth < 40)
+            smallButtonWidth = 40;
 
         // PLAY
         MoveWindow(
@@ -937,7 +771,7 @@ void ResizePlayerButtons(HWND window)
             x,
             80,
             buttonWidth,
-            60,
+            55,
             TRUE
         );
 
@@ -945,12 +779,327 @@ void ResizePlayerButtons(HWND window)
         MoveWindow(
             loopButton[i],
             x,
-            155,
+            145,
             buttonWidth,
-            50,
+            45,
+            TRUE
+        );
+
+        // TEMPO MINUS
+        MoveWindow(
+            tempoMinusButton[i],
+            x,
+            200,
+            smallButtonWidth,
+            40,
+            TRUE
+        );
+
+        // TEMPO DISPLAY
+        MoveWindow(
+            tempoLabel[i],
+            x + smallButtonWidth + 5,
+            200,
+            buttonWidth -
+                smallButtonWidth -
+                10,
+            40,
+            TRUE
+        );
+
+        // TEMPO PLUS
+        MoveWindow(
+            tempoPlusButton[i],
+            x,
+            245,
+            buttonWidth,
+            40,
             TRUE
         );
     }
+}
+
+// ============================================================
+// PLAY ONE PLAYER
+// ============================================================
+
+void PlaySong(int playerIndex)
+{
+    if (playerIndex < 0 ||
+        playerIndex >= PLAYER_COUNT)
+        return;
+
+    if (playing[playerIndex])
+        return;
+
+    playing[playerIndex] = true;
+    stopRequested[playerIndex] = false;
+
+    const char* filenames[PLAYER_COUNT] =
+    {
+        "song1.txt",
+        "song2.txt",
+        "song3.txt",
+        "song4.txt"
+    };
+
+    // ========================================================
+    // GET INITIAL TEMPO FROM SONG FILE
+    // ========================================================
+
+    std::vector<NoteEvent> tempNotes;
+    std::vector<DrumEvent> tempDrums;
+
+    double fileTempo = 120.0;
+    double loopLengthBeats = 4.0;
+
+    if (!LoadSong(
+        filenames[playerIndex],
+        tempNotes,
+        tempDrums,
+        fileTempo,
+        loopLengthBeats))
+    {
+        MessageBoxA(
+            mainWindow,
+            "Could not open or read the song file.",
+            "Song Error",
+            MB_OK | MB_ICONERROR
+        );
+
+        playing[playerIndex] = false;
+
+        PostMessage(
+            mainWindow,
+            WM_USER + playerIndex + 1,
+            0,
+            0
+        );
+
+        return;
+    }
+
+    // If this is the first time the song is played,
+    // use the TEMPO from the text file.
+    if (currentTempo[playerIndex] <= 0.0)
+    {
+        currentTempo[playerIndex] =
+            fileTempo;
+    }
+
+    UpdateTempoDisplay(playerIndex);
+
+    // ========================================================
+    // PLAYBACK LOOP
+    // ========================================================
+
+    while (!stopRequested[playerIndex])
+    {
+        std::vector<short> samples;
+
+        // Read the tempo at the beginning of each loop.
+        double tempo =
+            currentTempo[playerIndex].load();
+
+        if (!GenerateAudio(
+            filenames[playerIndex],
+            tempo,
+            samples))
+        {
+            MessageBoxA(
+                mainWindow,
+                "Could not generate the song audio.",
+                "Song Error",
+                MB_OK | MB_ICONERROR
+            );
+
+            break;
+        }
+
+        if (stopRequested[playerIndex])
+            break;
+
+        // ====================================================
+        // AUDIO FORMAT
+        // ====================================================
+
+        WAVEFORMATEX format = {};
+
+        format.wFormatTag =
+            WAVE_FORMAT_PCM;
+
+        format.nChannels =
+            1;
+
+        format.nSamplesPerSec =
+            SAMPLE_RATE;
+
+        format.wBitsPerSample =
+            16;
+
+        format.nBlockAlign =
+            format.nChannels *
+            format.wBitsPerSample /
+            8;
+
+        format.nAvgBytesPerSec =
+            format.nSamplesPerSec *
+            format.nBlockAlign;
+
+        // ====================================================
+        // OPEN AUDIO DEVICE
+        // ====================================================
+
+        HWAVEOUT audioDevice = nullptr;
+
+        MMRESULT result =
+            waveOutOpen(
+                &audioDevice,
+                WAVE_MAPPER,
+                &format,
+                0,
+                0,
+                CALLBACK_NULL
+            );
+
+        if (result != MMSYSERR_NOERROR)
+        {
+            MessageBoxA(
+                mainWindow,
+                "Could not open audio device.",
+                "Audio Error",
+                MB_OK | MB_ICONERROR
+            );
+
+            break;
+        }
+
+        // ====================================================
+        // AUDIO BUFFER
+        // ====================================================
+
+        WAVEHDR header = {};
+
+        header.lpData =
+            reinterpret_cast<LPSTR>(
+                samples.data()
+            );
+
+        header.dwBufferLength =
+            static_cast<DWORD>(
+                samples.size() *
+                sizeof(short)
+            );
+
+        result =
+            waveOutPrepareHeader(
+                audioDevice,
+                &header,
+                sizeof(header)
+            );
+
+        if (result != MMSYSERR_NOERROR)
+        {
+            waveOutClose(
+                audioDevice
+            );
+
+            break;
+        }
+
+        // ====================================================
+        // PLAY BUFFER
+        // ====================================================
+
+        result =
+            waveOutWrite(
+                audioDevice,
+                &header,
+                sizeof(header)
+            );
+
+        if (result != MMSYSERR_NOERROR)
+        {
+            waveOutUnprepareHeader(
+                audioDevice,
+                &header,
+                sizeof(header)
+            );
+
+            waveOutClose(
+                audioDevice
+            );
+
+            break;
+        }
+
+        // ====================================================
+        // WAIT FOR PLAYBACK
+        // ====================================================
+
+        while (!(header.dwFlags & WHDR_DONE))
+        {
+            if (stopRequested[playerIndex])
+            {
+                waveOutReset(
+                    audioDevice
+                );
+
+                break;
+            }
+
+            Sleep(1);
+        }
+
+        // ====================================================
+        // CLEANUP THIS LOOP
+        // ====================================================
+
+        waveOutReset(
+            audioDevice
+        );
+
+        waveOutUnprepareHeader(
+            audioDevice,
+            &header,
+            sizeof(header)
+        );
+
+        waveOutClose(
+            audioDevice
+        );
+
+        if (stopRequested[playerIndex])
+            break;
+
+        // ====================================================
+        // LOOP OFF
+        // ====================================================
+
+        if (!looping[playerIndex])
+            break;
+
+        // ====================================================
+        // LOOP ON
+        //
+        // The next pass regenerates the audio using the
+        // CURRENT tempo. This means pressing + or -
+        // changes the next loop.
+        // ====================================================
+    }
+
+    // ========================================================
+    // FINISHED
+    // ========================================================
+
+    playing[playerIndex] = false;
+
+    PostMessage(
+        mainWindow,
+        WM_USER + playerIndex + 1,
+        0,
+        0
+    );
 }
 
 // ============================================================
@@ -974,9 +1123,9 @@ LRESULT CALLBACK WindowProcedure(
             int button =
                 LOWORD(wParam);
 
-            // ------------------------------------------------
+            // =================================================
             // PLAYER 1
-            // ------------------------------------------------
+            // =================================================
 
             if (button == ID_PLAY1)
             {
@@ -986,7 +1135,7 @@ LRESULT CALLBACK WindowProcedure(
                 {
                     stopRequested[p] = false;
 
-                    SetWindowText(
+                    SetWindowTextA(
                         playButton[p],
                         "STOP"
                     );
@@ -1000,7 +1149,7 @@ LRESULT CALLBACK WindowProcedure(
                 {
                     stopRequested[p] = true;
 
-                    SetWindowText(
+                    SetWindowTextA(
                         playButton[p],
                         "PLAY"
                     );
@@ -1014,7 +1163,7 @@ LRESULT CALLBACK WindowProcedure(
                 looping[p] =
                     !looping[p];
 
-                SetWindowText(
+                SetWindowTextA(
                     loopButton[p],
                     looping[p]
                     ? "LOOP: ON"
@@ -1022,9 +1171,45 @@ LRESULT CALLBACK WindowProcedure(
                 );
             }
 
-            // ------------------------------------------------
+            else if (button == ID_TEMPO_MINUS1)
+            {
+                int p = 0;
+
+                double tempo =
+                    currentTempo[p];
+
+                tempo -= TEMPO_STEP;
+
+                if (tempo < MIN_TEMPO)
+                    tempo = MIN_TEMPO;
+
+                currentTempo[p] =
+                    tempo;
+
+                UpdateTempoDisplay(p);
+            }
+
+            else if (button == ID_TEMPO_PLUS1)
+            {
+                int p = 0;
+
+                double tempo =
+                    currentTempo[p];
+
+                tempo += TEMPO_STEP;
+
+                if (tempo > MAX_TEMPO)
+                    tempo = MAX_TEMPO;
+
+                currentTempo[p] =
+                    tempo;
+
+                UpdateTempoDisplay(p);
+            }
+
+            // =================================================
             // PLAYER 2
-            // ------------------------------------------------
+            // =================================================
 
             else if (button == ID_PLAY2)
             {
@@ -1034,7 +1219,7 @@ LRESULT CALLBACK WindowProcedure(
                 {
                     stopRequested[p] = false;
 
-                    SetWindowText(
+                    SetWindowTextA(
                         playButton[p],
                         "STOP"
                     );
@@ -1048,7 +1233,7 @@ LRESULT CALLBACK WindowProcedure(
                 {
                     stopRequested[p] = true;
 
-                    SetWindowText(
+                    SetWindowTextA(
                         playButton[p],
                         "PLAY"
                     );
@@ -1062,7 +1247,7 @@ LRESULT CALLBACK WindowProcedure(
                 looping[p] =
                     !looping[p];
 
-                SetWindowText(
+                SetWindowTextA(
                     loopButton[p],
                     looping[p]
                     ? "LOOP: ON"
@@ -1070,9 +1255,45 @@ LRESULT CALLBACK WindowProcedure(
                 );
             }
 
-            // ------------------------------------------------
+            else if (button == ID_TEMPO_MINUS2)
+            {
+                int p = 1;
+
+                double tempo =
+                    currentTempo[p];
+
+                tempo -= TEMPO_STEP;
+
+                if (tempo < MIN_TEMPO)
+                    tempo = MIN_TEMPO;
+
+                currentTempo[p] =
+                    tempo;
+
+                UpdateTempoDisplay(p);
+            }
+
+            else if (button == ID_TEMPO_PLUS2)
+            {
+                int p = 1;
+
+                double tempo =
+                    currentTempo[p];
+
+                tempo += TEMPO_STEP;
+
+                if (tempo > MAX_TEMPO)
+                    tempo = MAX_TEMPO;
+
+                currentTempo[p] =
+                    tempo;
+
+                UpdateTempoDisplay(p);
+            }
+
+            // =================================================
             // PLAYER 3
-            // ------------------------------------------------
+            // =================================================
 
             else if (button == ID_PLAY3)
             {
@@ -1082,7 +1303,7 @@ LRESULT CALLBACK WindowProcedure(
                 {
                     stopRequested[p] = false;
 
-                    SetWindowText(
+                    SetWindowTextA(
                         playButton[p],
                         "STOP"
                     );
@@ -1096,7 +1317,7 @@ LRESULT CALLBACK WindowProcedure(
                 {
                     stopRequested[p] = true;
 
-                    SetWindowText(
+                    SetWindowTextA(
                         playButton[p],
                         "PLAY"
                     );
@@ -1110,7 +1331,7 @@ LRESULT CALLBACK WindowProcedure(
                 looping[p] =
                     !looping[p];
 
-                SetWindowText(
+                SetWindowTextA(
                     loopButton[p],
                     looping[p]
                     ? "LOOP: ON"
@@ -1118,9 +1339,45 @@ LRESULT CALLBACK WindowProcedure(
                 );
             }
 
-            // ------------------------------------------------
+            else if (button == ID_TEMPO_MINUS3)
+            {
+                int p = 2;
+
+                double tempo =
+                    currentTempo[p];
+
+                tempo -= TEMPO_STEP;
+
+                if (tempo < MIN_TEMPO)
+                    tempo = MIN_TEMPO;
+
+                currentTempo[p] =
+                    tempo;
+
+                UpdateTempoDisplay(p);
+            }
+
+            else if (button == ID_TEMPO_PLUS3)
+            {
+                int p = 2;
+
+                double tempo =
+                    currentTempo[p];
+
+                tempo += TEMPO_STEP;
+
+                if (tempo > MAX_TEMPO)
+                    tempo = MAX_TEMPO;
+
+                currentTempo[p] =
+                    tempo;
+
+                UpdateTempoDisplay(p);
+            }
+
+            // =================================================
             // PLAYER 4
-            // ------------------------------------------------
+            // =================================================
 
             else if (button == ID_PLAY4)
             {
@@ -1130,7 +1387,7 @@ LRESULT CALLBACK WindowProcedure(
                 {
                     stopRequested[p] = false;
 
-                    SetWindowText(
+                    SetWindowTextA(
                         playButton[p],
                         "STOP"
                     );
@@ -1144,7 +1401,7 @@ LRESULT CALLBACK WindowProcedure(
                 {
                     stopRequested[p] = true;
 
-                    SetWindowText(
+                    SetWindowTextA(
                         playButton[p],
                         "PLAY"
                     );
@@ -1158,12 +1415,48 @@ LRESULT CALLBACK WindowProcedure(
                 looping[p] =
                     !looping[p];
 
-                SetWindowText(
+                SetWindowTextA(
                     loopButton[p],
                     looping[p]
                     ? "LOOP: ON"
                     : "LOOP: OFF"
                 );
+            }
+
+            else if (button == ID_TEMPO_MINUS4)
+            {
+                int p = 3;
+
+                double tempo =
+                    currentTempo[p];
+
+                tempo -= TEMPO_STEP;
+
+                if (tempo < MIN_TEMPO)
+                    tempo = MIN_TEMPO;
+
+                currentTempo[p] =
+                    tempo;
+
+                UpdateTempoDisplay(p);
+            }
+
+            else if (button == ID_TEMPO_PLUS4)
+            {
+                int p = 3;
+
+                double tempo =
+                    currentTempo[p];
+
+                tempo += TEMPO_STEP;
+
+                if (tempo > MAX_TEMPO)
+                    tempo = MAX_TEMPO;
+
+                currentTempo[p] =
+                    tempo;
+
+                UpdateTempoDisplay(p);
             }
 
             break;
@@ -1175,7 +1468,7 @@ LRESULT CALLBACK WindowProcedure(
 
         case WM_USER + 1:
         {
-            SetWindowText(
+            SetWindowTextA(
                 playButton[0],
                 "PLAY"
             );
@@ -1185,7 +1478,7 @@ LRESULT CALLBACK WindowProcedure(
 
         case WM_USER + 2:
         {
-            SetWindowText(
+            SetWindowTextA(
                 playButton[1],
                 "PLAY"
             );
@@ -1195,7 +1488,7 @@ LRESULT CALLBACK WindowProcedure(
 
         case WM_USER + 3:
         {
-            SetWindowText(
+            SetWindowTextA(
                 playButton[2],
                 "PLAY"
             );
@@ -1205,7 +1498,7 @@ LRESULT CALLBACK WindowProcedure(
 
         case WM_USER + 4:
         {
-            SetWindowText(
+            SetWindowTextA(
                 playButton[3],
                 "PLAY"
             );
@@ -1214,12 +1507,14 @@ LRESULT CALLBACK WindowProcedure(
         }
 
         // ====================================================
-        // WINDOW RESIZED
+        // RESIZE
         // ====================================================
 
         case WM_SIZE:
         {
-            ResizePlayerButtons(window);
+            ResizePlayerButtons(
+                window
+            );
 
             InvalidateRect(
                 window,
@@ -1230,7 +1525,7 @@ LRESULT CALLBACK WindowProcedure(
             break;
         }
 
-                // ====================================================
+        // ====================================================
         // PAINT
         // ====================================================
 
@@ -1271,11 +1566,12 @@ LRESULT CALLBACK WindowProcedure(
             );
 
             // ------------------------------------------------
-            // FOUR COLUMNS
+            // COLUMNS
             // ------------------------------------------------
 
             int columnWidth =
-                rect.right / PLAYER_COUNT;
+                rect.right /
+                PLAYER_COUNT;
 
             for (int i = 0;
                  i < PLAYER_COUNT;
@@ -1363,7 +1659,7 @@ LRESULT CALLBACK WindowProcedure(
             );
 
             HFONT titleFont =
-                CreateFont(
+                CreateFontA(
                     26,
                     0,
                     0,
@@ -1406,7 +1702,7 @@ LRESULT CALLBACK WindowProcedure(
                     60
                 };
 
-                DrawText(
+                DrawTextA(
                     dc,
                     titles[i],
                     -1,
@@ -1451,10 +1747,6 @@ LRESULT CALLBACK WindowProcedure(
             break;
         }
 
-        // ====================================================
-        // DEFAULT
-        // ====================================================
-
         default:
         {
             return DefWindowProc(
@@ -1483,10 +1775,10 @@ int WINAPI WinMain(
         "CppSongMaker";
 
     // ========================================================
-    // REGISTER WINDOW CLASS
+    // WINDOW CLASS
     // ========================================================
 
-    WNDCLASS windowClass = {};
+    WNDCLASSA windowClass = {};
 
     windowClass.lpfnWndProc =
         WindowProcedure;
@@ -1502,16 +1794,22 @@ int WINAPI WinMain(
             BACKGROUND
         );
 
-    RegisterClass(
+    windowClass.hCursor =
+        LoadCursor(
+            nullptr,
+            IDC_ARROW
+        );
+
+    RegisterClassA(
         &windowClass
     );
 
     // ========================================================
-    // CREATE WINDOW
+    // WINDOW
     // ========================================================
 
     HWND window =
-        CreateWindowEx(
+        CreateWindowExA(
             0,
             CLASS_NAME,
             "C++ Song Maker",
@@ -1529,7 +1827,22 @@ int WINAPI WinMain(
     if (!window)
         return 0;
 
-    mainWindow = window;
+    mainWindow =
+        window;
+
+    // ========================================================
+    // INITIAL TEMPOS
+    //
+    // Start at 120 until the song is played.
+    // PlaySong will read TEMPO from the song file.
+    // ========================================================
+
+    for (int i = 0;
+         i < PLAYER_COUNT;
+         ++i)
+    {
+        currentTempo[i] = 120.0;
+    }
 
     // ========================================================
     // CREATE BUTTONS
@@ -1541,34 +1854,44 @@ int WINAPI WinMain(
     {
         int playID = 0;
         int loopID = 0;
+        int tempoMinusID = 0;
+        int tempoPlusID = 0;
 
         if (i == 0)
         {
             playID = ID_PLAY1;
             loopID = ID_LOOP1;
+            tempoMinusID = ID_TEMPO_MINUS1;
+            tempoPlusID = ID_TEMPO_PLUS1;
         }
         else if (i == 1)
         {
             playID = ID_PLAY2;
             loopID = ID_LOOP2;
+            tempoMinusID = ID_TEMPO_MINUS2;
+            tempoPlusID = ID_TEMPO_PLUS2;
         }
         else if (i == 2)
         {
             playID = ID_PLAY3;
             loopID = ID_LOOP3;
+            tempoMinusID = ID_TEMPO_MINUS3;
+            tempoPlusID = ID_TEMPO_PLUS3;
         }
         else
         {
             playID = ID_PLAY4;
             loopID = ID_LOOP4;
+            tempoMinusID = ID_TEMPO_MINUS4;
+            tempoPlusID = ID_TEMPO_PLUS4;
         }
 
         // ----------------------------------------------------
-        // PLAY BUTTON
+        // PLAY
         // ----------------------------------------------------
 
         playButton[i] =
-            CreateWindow(
+            CreateWindowA(
                 "BUTTON",
                 "PLAY",
                 WS_VISIBLE |
@@ -1577,7 +1900,7 @@ int WINAPI WinMain(
                 0,
                 80,
                 100,
-                60,
+                55,
                 window,
                 (HMENU)(INT_PTR)playID,
                 instance,
@@ -1585,29 +1908,94 @@ int WINAPI WinMain(
             );
 
         // ----------------------------------------------------
-        // LOOP BUTTON
+        // LOOP
         // ----------------------------------------------------
 
         loopButton[i] =
-            CreateWindow(
+            CreateWindowA(
                 "BUTTON",
                 "LOOP: OFF",
                 WS_VISIBLE |
                 WS_CHILD |
                 BS_PUSHBUTTON,
                 0,
-                155,
+                145,
                 100,
-                50,
+                45,
                 window,
                 (HMENU)(INT_PTR)loopID,
                 instance,
                 nullptr
             );
+
+        // ----------------------------------------------------
+        // TEMPO MINUS
+        // ----------------------------------------------------
+
+        tempoMinusButton[i] =
+            CreateWindowA(
+                "BUTTON",
+                "-",
+                WS_VISIBLE |
+                WS_CHILD |
+                BS_PUSHBUTTON,
+                0,
+                200,
+                40,
+                40,
+                window,
+                (HMENU)(INT_PTR)tempoMinusID,
+                instance,
+                nullptr
+            );
+
+        // ----------------------------------------------------
+        // TEMPO DISPLAY
+        // ----------------------------------------------------
+
+        tempoLabel[i] =
+            CreateWindowA(
+                "STATIC",
+                "TEMPO: 120",
+                WS_VISIBLE |
+                WS_CHILD |
+                SS_CENTER |
+                SS_CENTERIMAGE,
+                0,
+                200,
+                100,
+                40,
+                window,
+                nullptr,
+                instance,
+                nullptr
+            );
+
+        // ----------------------------------------------------
+        // TEMPO PLUS
+        // ----------------------------------------------------
+
+        tempoPlusButton[i] =
+            CreateWindowA(
+                "BUTTON",
+                "+",
+                WS_VISIBLE |
+                WS_CHILD |
+                BS_PUSHBUTTON,
+                0,
+                245,
+                100,
+                40,
+                window,
+                (HMENU)(INT_PTR)tempoPlusID,
+                instance,
+                nullptr
+            );
     }
 
-    // Position buttons correctly
-    // for the current window size.
+    // ========================================================
+    // POSITION EVERYTHING
+    // ========================================================
 
     ResizePlayerButtons(
         window
