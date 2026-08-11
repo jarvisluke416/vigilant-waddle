@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <mmsystem.h>
+
 #include <atomic>
 #include <cmath>
 #include <random>
@@ -1738,25 +1739,29 @@ LRESULT CALLBACK WindowProcedure(
         // ====================================================
 
         case WM_CTLCOLORBTN:
-        {
-            HDC dc =
-                (HDC)wParam;
+        case WM_CTLCOLORSTATIC:
+{
+    HDC dc = (HDC)wParam;
 
-            SetTextColor(
-                dc,
-                BUTTON_TEXT
+        SetTextColor(
+        dc,
+        BUTTON_TEXT
             );
 
-            SetBkMode(
-                dc,
-                TRANSPARENT
-            );
+    SetBkColor(
+        dc,
+        COLUMN
+             );
 
-            return (LRESULT)GetStockObject(
-                NULL_BRUSH
-            );
+    SetBkMode(
+        dc,
+        OPAQUE
+          );
+
+        return (LRESULT)CreateSolidBrush(
+        COLUMN
+          );
         }
-
         // ====================================================
         // TEXT INPUT COLOR
         // ====================================================
@@ -1782,30 +1787,6 @@ LRESULT CALLBACK WindowProcedure(
                 );
 
             return (LRESULT)inputBrush;
-        }
-
-        // ====================================================
-        // STATIC LABEL COLOR
-        // ====================================================
-
-        case WM_CTLCOLORSTATIC:
-        {
-            HDC dc =
-                (HDC)wParam;
-
-            SetTextColor(
-                dc,
-                TEXT
-            );
-
-            SetBkMode(
-                dc,
-                TRANSPARENT
-            );
-
-            return (LRESULT)GetStockObject(
-                NULL_BRUSH
-            );
         }
 
         // ====================================================
