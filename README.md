@@ -4,7 +4,87 @@ g++ "main.cpp" -o "C++Audio.exe" -lwinmm -lgdi32.
 Enter
 
 
+TEMPO 120
 
+LENGTH 8
+TRUMPET A#5 10 1 
+
+That one has the same issue: your note starts at beat 10, but your song length is only 8 beats.
+
+Use LENGTH 12 or move the note earlier.
+
+For example:
+
+TEMPO 120
+LENGTH 12
+
+TRUMPET A#5 10 1
+
+That should play the A#5 trumpet note at beat 10.
+
+If you want it within your existing 8-beat song:
+
+TEMPO 120
+LENGTH 8
+
+TRUMPET A#5 6 1
+Quick rule
+
+The third number after the note is the starting beat:
+
+TRUMPET A#5 10 1
+              ↑
+           starts here
+
+And LENGTH 8 means the song only lasts from beat 0 through 8, so anything starting at beat 10 is outside the generated audio.
+
+how many beats long can it be?
+
+As your code is currently written, there is no hard maximum for LENGTH.
+
+For example, you can use:
+
+LENGTH 4
+
+or
+
+LENGTH 8
+
+or
+
+LENGTH 16
+
+or even:
+
+LENGTH 64
+Important
+
+LENGTH is measured in beats, not seconds.
+
+At TEMPO 120:
+
+LENGTH 4 = 2 seconds
+LENGTH 8 = 4 seconds
+LENGTH 16 = 8 seconds
+LENGTH 32 = 16 seconds
+LENGTH 64 = 32 seconds
+LENGTH 128 = 64 seconds
+
+So if you want a longer song, you can simply do:
+
+TEMPO 120
+LENGTH 32
+
+PIANO C4 0 1
+PIANO E4 2 1
+PIANO G4 4 1
+TRUMPET A#5 10 1
+DRUM KICK 0
+DRUM SNARE 2
+DRUM KICK 4
+DRUM SNARE 6
+
+One thing to watch: your program generates the entire audio buffer in memory, so extremely large lengths will eventually use more RAM and take longer to generate. For normal songs, 16–128 beats should be perfectly reasonable with this code.
 TEMPO, LENGTH
 Notes	NOTE
 Instruments	PIANO PIANO NOTE START_BEAT DURATION_BEATS
