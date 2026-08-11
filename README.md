@@ -358,32 +358,38 @@ GUITAR B4 0 2
 GUITAR D#5 0 2
 GUITAR F#5 0 2
 GUITAR A#5 0 2
-🎸 Example progression
-
-Here's Cmaj7 → Fmaj7 → Gmaj7 → Cmaj7:
-
-TEMPO 120
-LENGTH 8
-
+Cm
 GUITAR C4 0 2
+GUITAR D#4 0 2
+GUITAR G4 0 2
+C#m
+GUITAR C#4 0 2
+GUITAR E4 0 2
+GUITAR G#4 0 2
+Dm
+GUITAR D4 0 2
+GUITAR F4 0 2
+GUITAR A4 0 2
+Em
 GUITAR E4 0 2
 GUITAR G4 0 2
 GUITAR B4 0 2
-
-GUITAR F4 2 2
-GUITAR A4 2 2
-GUITAR C5 2 2
-GUITAR E5 2 2
-
-GUITAR G4 4 2
-GUITAR B4 4 2
-GUITAR D5 4 2
-GUITAR F#5 4 2
-
-GUITAR C4 6 2
-GUITAR E4 6 2
-GUITAR G4 6 2
-GUITAR B4 6 2
+Fm
+GUITAR F4 0 2
+GUITAR G#4 0 2
+GUITAR C5 0 2
+Gm
+GUITAR G4 0 2
+GUITAR A#4 0 2
+GUITAR D5 0 2
+Am
+GUITAR A4 0 2
+GUITAR C5 0 2
+GUITAR E5 0 2
+Bm
+GUITAR B4 0 2
+GUITAR D5 0 2
+GUITAR F#5 0 2
 
 One correction from the earlier chart: some of the enharmonic spellings above (such as C#maj7) are simplified to the pitches your editor can actually represent. The sound will be correct even when the theoretical spelling would use a double-sharp.
 C2–B2
