@@ -26,7 +26,7 @@ const int GRID_COLUMNS = 4;
 const int GRID_ROWS = 4;
 
 const double MIN_TEMPO = 40.0;
-const double MAX_TEMPO = 240.0;
+const double MAX_TEMPO = 480.0;
 const double TEMPO_STEP = 5.0;
 
 const int MIN_PITCH = -12;
