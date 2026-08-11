@@ -463,5 +463,97 @@ ORGAN G4 5 1
 ORGAN E4 6 1
 ORGAN G4 7 1
 
-Your ORGAN waveform combines the fundamental with harmonics, so it should sound fuller and more sustained than the basic piano waveform. FLUTE, TRUMPET, BELL
+Your ORGAN waveform combines the fundamental with harmonics, so it should sound fuller and more sustained than the basic piano waveform. FLUTE FLUTE NOTE START_BEAT DURATION_BEATS
+
+C2–B2
+FLUTE C2 0 1
+FLUTE C#2 1 1
+FLUTE D2 2 1
+FLUTE D#2 3 1
+FLUTE E2 4 1
+FLUTE F2 5 1
+FLUTE F#2 6 1
+FLUTE G2 7 1
+FLUTE G#2 8 1
+FLUTE A2 9 1
+FLUTE A#2 10 1
+FLUTE B2 11 1
+C3–B3
+FLUTE C3 0 1
+FLUTE C#3 1 1
+FLUTE D3 2 1
+FLUTE D#3 3 1
+FLUTE E3 4 1
+FLUTE F3 5 1
+FLUTE F#3 6 1
+FLUTE G3 7 1
+FLUTE G#3 8 1
+FLUTE A3 9 1
+FLUTE A#3 10 1
+FLUTE B3 11 1
+C4–B4
+FLUTE C4 0 1
+FLUTE C#4 1 1
+FLUTE D4 2 1
+FLUTE D#4 3 1
+FLUTE E4 4 1
+FLUTE F4 5 1
+FLUTE F#4 6 1
+FLUTE G4 7 1
+FLUTE G#4 8 1
+FLUTE A4 9 1
+FLUTE A#4 10 1
+FLUTE B4 11 1
+C5–B5
+FLUTE C5 0 1
+FLUTE C#5 1 1
+FLUTE D5 2 1
+FLUTE D#5 3 1
+FLUTE E5 4 1
+FLUTE F5 5 1
+FLUTE F#5 6 1
+FLUTE G5 7 1
+FLUTE G#5 8 1
+FLUTE A5 9 1
+FLUTE A#5 10 1
+FLUTE B5 11 1
+C6–B6
+FLUTE C6 0 1
+FLUTE C#6 1 1
+FLUTE D6 2 1
+FLUTE D#6 3 1
+FLUTE E6 4 1
+FLUTE F6 5 1
+FLUTE F#6 6 1
+FLUTE G6 7 1
+FLUTE G#6 8 1
+FLUTE A6 9 1
+FLUTE A#6 10 1
+FLUTE B6 11 1
+🎵 Example flute melody
+TEMPO 100
+LENGTH 8
+
+FLUTE C5 0 1
+FLUTE D5 1 1
+FLUTE E5 2 1
+FLUTE G5 3 1
+
+FLUTE A5 4 1
+FLUTE G5 5 1
+FLUTE E5 6 1
+FLUTE D5 7 1
+🌬️ Longer notes
+
+Flute can sound especially nice with longer durations:
+
+TEMPO 80
+LENGTH 8
+
+FLUTE C5 0 2
+FLUTE E5 2 2
+FLUTE G5 4 2
+FLUTE C6 6 2
+
+Your current FLUTE waveform is a relatively simple sine wave with a small second harmonic, so it should sound smoother and softer than the SYNTH or ORGAN. TRUMPET, BELL
 Drums	KICK, BASS_DRUM, SNARE, HIHAT, CLOSED_HIHAT, OPEN_HIHAT, OPENHIHAT, CLAP, LOW_TOM, MID_TOM, HIGH_TOM, CRASH, RIDE, RIMSHOT, COWBELL, SHAKER, TAMBOURINE
