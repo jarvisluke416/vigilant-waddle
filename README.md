@@ -354,5 +354,114 @@ SYNTH D5 5.5 0.5
 
 SYNTH C5 6 2
 
-SYNTH uses a sawtooth-style waveform in your code, so it should have a much brighter/edgier sound than the piano, bass, or guitar. ORGAN, FLUTE, TRUMPET, BELL
+SYNTH uses a sawtooth-style waveform in your code, so it should have a much brighter/edgier sound than the piano, bass, or guitar. ORGAN Absolutely. ORGAN supports all 60 notes from C2 through B6 in your current code.
+
+Format:
+
+ORGAN NOTE START_BEAT DURATION_BEATS
+
+C2–B2
+ORGAN C2 0 1
+ORGAN C#2 1 1
+ORGAN D2 2 1
+ORGAN D#2 3 1
+ORGAN E2 4 1
+ORGAN F2 5 1
+ORGAN F#2 6 1
+ORGAN G2 7 1
+ORGAN G#2 8 1
+ORGAN A2 9 1
+ORGAN A#2 10 1
+ORGAN B2 11 1
+C3–B3
+ORGAN C3 0 1
+ORGAN C#3 1 1
+ORGAN D3 2 1
+ORGAN D#3 3 1
+ORGAN E3 4 1
+ORGAN F3 5 1
+ORGAN F#3 6 1
+ORGAN G3 7 1
+ORGAN G#3 8 1
+ORGAN A3 9 1
+ORGAN A#3 10 1
+ORGAN B3 11 1
+C4–B4
+ORGAN C4 0 1
+ORGAN C#4 1 1
+ORGAN D4 2 1
+ORGAN D#4 3 1
+ORGAN E4 4 1
+ORGAN F4 5 1
+ORGAN F#4 6 1
+ORGAN G4 7 1
+ORGAN G#4 8 1
+ORGAN A4 9 1
+ORGAN A#4 10 1
+ORGAN B4 11 1
+C5–B5
+ORGAN C5 0 1
+ORGAN C#5 1 1
+ORGAN D5 2 1
+ORGAN D#5 3 1
+ORGAN E5 4 1
+ORGAN F5 5 1
+ORGAN F#5 6 1
+ORGAN G5 7 1
+ORGAN G#5 8 1
+ORGAN A5 9 1
+ORGAN A#5 10 1
+ORGAN B5 11 1
+C6–B6
+ORGAN C6 0 1
+ORGAN C#6 1 1
+ORGAN D6 2 1
+ORGAN D#6 3 1
+ORGAN E6 4 1
+ORGAN F6 5 1
+ORGAN F#6 6 1
+ORGAN G6 7 1
+ORGAN G#6 8 1
+ORGAN A6 9 1
+ORGAN A#6 10 1
+ORGAN B6 11 1
+🎹 Example ORGAN chords
+
+Because your program allows multiple notes at the same start beat, you can create chords:
+
+TEMPO 120
+LENGTH 8
+
+ORGAN C4 0 2
+ORGAN E4 0 2
+ORGAN G4 0 2
+
+ORGAN F4 2 2
+ORGAN A4 2 2
+ORGAN C5 2 2
+
+ORGAN G4 4 2
+ORGAN B4 4 2
+ORGAN D5 4 2
+
+ORGAN C4 6 2
+ORGAN E4 6 2
+ORGAN G4 6 2
+🎵 Example organ melody
+TEMPO 100
+LENGTH 8
+
+ORGAN C4 0 1
+ORGAN E4 1 1
+ORGAN G4 2 1
+ORGAN C5 3 1
+
+ORGAN B4 4 0.5
+ORGAN A4 4.5 0.5
+ORGAN G4 5 1
+
+ORGAN E4 6 1
+ORGAN G4 7 1
+
+Your ORGAN waveform combines the fundamental with harmonics, so it should sound fuller and more sustained than the basic piano waveform. FLUTE, TRUMPET, BELL
 Drums	KICK, BASS_DRUM, SNARE, HIHAT, CLOSED_HIHAT, OPEN_HIHAT, OPENHIHAT, CLAP, LOW_TOM, MID_TOM, HIGH_TOM, CRASH, RIDE, RIMSHOT, COWBELL, SHAKER, TAMBOURINE
