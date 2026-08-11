@@ -1601,4 +1601,140 @@ DRUM CRASH 0
 DRUM CRASH 2
 DRUM CRASH 3.75
 
-One important thing with your current code: CRASH lasts up to 2 seconds, so if you place several crashes close together, they will overlap and create a much bigger/noisier sound. That's normal for the way your synthesizer is currently written. RIDE, RIMSHOT, COWBELL, SHAKER, TAMBOURINE
+One important thing with your current code: CRASH lasts up to 2 seconds, so if you place several crashes close together, they will overlap and create a much bigger/noisier sound. That's normal for the way your synthesizer is currently written. RIDE Absolutely. RIDE is supported in your code.
+
+Use:
+
+DRUM RIDE <beat>
+
+Your current RIDE sound is a metallic synthesized cymbal with a decay of about 1.5 seconds.
+
+Basic RIDE
+DRUM RIDE 0
+DRUM RIDE 1
+DRUM RIDE 2
+DRUM RIDE 3
+Every half-beat
+DRUM RIDE 0
+DRUM RIDE 0.5
+DRUM RIDE 1
+DRUM RIDE 1.5
+DRUM RIDE 2
+DRUM RIDE 2.5
+DRUM RIDE 3
+DRUM RIDE 3.5
+Every quarter-beat
+DRUM RIDE 0
+DRUM RIDE 0.25
+DRUM RIDE 0.5
+DRUM RIDE 0.75
+DRUM RIDE 1
+DRUM RIDE 1.25
+DRUM RIDE 1.5
+DRUM RIDE 1.75
+DRUM RIDE 2
+DRUM RIDE 2.25
+DRUM RIDE 2.5
+DRUM RIDE 2.75
+DRUM RIDE 3
+DRUM RIDE 3.25
+DRUM RIDE 3.5
+DRUM RIDE 3.75
+Classic ride pattern
+DRUM RIDE 0
+DRUM RIDE 1
+DRUM RIDE 2
+DRUM RIDE 3
+Ride on every half-beat
+DRUM RIDE 0
+DRUM RIDE 0.5
+DRUM RIDE 1
+DRUM RIDE 1.5
+DRUM RIDE 2
+DRUM RIDE 2.5
+DRUM RIDE 3
+DRUM RIDE 3.5
+Ride + kick + snare
+DRUM KICK 0
+DRUM RIDE 0
+
+DRUM SNARE 1
+DRUM RIDE 1
+
+DRUM KICK 2
+DRUM RIDE 2
+
+DRUM SNARE 3
+DRUM RIDE 3
+Ride + hi-hat
+DRUM RIDE 0
+DRUM HIHAT 0.5
+DRUM RIDE 1
+DRUM HIHAT 1.5
+DRUM RIDE 2
+DRUM HIHAT 2.5
+DRUM RIDE 3
+DRUM HIHAT 3.5
+Full 4/4 ride beat
+TEMPO 120
+LENGTH 4
+
+DRUM KICK 0
+DRUM RIDE 0
+DRUM HIHAT 0.5
+
+DRUM SNARE 1
+DRUM RIDE 1
+DRUM HIHAT 1.5
+
+DRUM KICK 2
+DRUM RIDE 2
+DRUM HIHAT 2.5
+
+DRUM SNARE 3
+DRUM RIDE 3
+DRUM HIHAT 3.5
+Ride with a tom fill
+DRUM KICK 0
+DRUM RIDE 0
+
+DRUM SNARE 1
+DRUM RIDE 1
+
+DRUM KICK 2
+DRUM RIDE 2
+
+DRUM HIGH_TOM 2.5
+DRUM MID_TOM 2.75
+DRUM LOW_TOM 3
+DRUM CRASH 3.75
+Ride + crash ending
+DRUM KICK 0
+DRUM RIDE 0
+
+DRUM SNARE 1
+DRUM RIDE 1
+
+DRUM KICK 2
+DRUM RIDE 2
+
+DRUM SNARE 3
+DRUM RIDE 3
+DRUM CRASH 3.75
+Ride groove
+DRUM RIDE 0
+DRUM RIDE 0.5
+DRUM RIDE 1
+DRUM RIDE 1.5
+DRUM RIDE 2
+DRUM RIDE 2.5
+DRUM RIDE 3
+DRUM RIDE 3.5
+
+DRUM KICK 0
+DRUM KICK 2
+
+DRUM SNARE 1
+DRUM SNARE 3
+
+Because your synthesized ride has a fairly long decay, using it on every 0.25 beat will cause lots of overlapping metallic sounds. For a more natural ride, I'd recommend starting with every 0.5 beat or every 1 beat. RIMSHOT, COWBELL, SHAKER, TAMBOURINE
