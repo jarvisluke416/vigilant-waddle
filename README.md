@@ -1116,4 +1116,94 @@ and
 
 DRUM CLOSED_HIHAT 0
 
-Both produce the closed hi-hat sound.  CLAP, LOW_TOM, MID_TOM, HIGH_TOM, CRASH, RIDE, RIMSHOT, COWBELL, SHAKER, TAMBOURINE
+Both produce the closed hi-hat sound.  CLAP Absolutely. CLAP is supported by your code and is entered like this:
+
+DRUM CLAP <beat>
+
+The number is the beat where the clap starts.
+
+Basic CLAP
+DRUM CLAP 0
+DRUM CLAP 1
+DRUM CLAP 2
+DRUM CLAP 3
+Every half-beat
+DRUM CLAP 0
+DRUM CLAP 0.5
+DRUM CLAP 1
+DRUM CLAP 1.5
+DRUM CLAP 2
+DRUM CLAP 2.5
+DRUM CLAP 3
+DRUM CLAP 3.5
+Every quarter-beat
+DRUM CLAP 0
+DRUM CLAP 0.25
+DRUM CLAP 0.5
+DRUM CLAP 0.75
+DRUM CLAP 1
+DRUM CLAP 1.25
+DRUM CLAP 1.5
+DRUM CLAP 1.75
+DRUM CLAP 2
+DRUM CLAP 2.25
+DRUM CLAP 2.5
+DRUM CLAP 2.75
+DRUM CLAP 3
+DRUM CLAP 3.25
+DRUM CLAP 3.5
+DRUM CLAP 3.75
+Classic clap pattern
+
+A common pattern is on beats 2 and 4:
+
+DRUM CLAP 1
+DRUM CLAP 3
+Dance-style clap
+DRUM KICK 0
+DRUM CLAP 1
+DRUM KICK 2
+DRUM CLAP 3
+Clap with hi-hat
+DRUM HIHAT 0
+DRUM HIHAT 0.5
+DRUM CLAP 1
+
+DRUM HIHAT 1
+DRUM HIHAT 1.5
+DRUM CLAP 2
+
+DRUM HIHAT 2
+DRUM HIHAT 2.5
+DRUM CLAP 3
+
+DRUM HIHAT 3
+DRUM HIHAT 3.5
+Full drum pattern
+TEMPO 120
+LENGTH 4
+
+DRUM KICK 0
+DRUM HIHAT 0
+DRUM HIHAT 0.5
+
+DRUM CLAP 1
+DRUM HIHAT 1
+DRUM HIHAT 1.5
+
+DRUM KICK 2
+DRUM HIHAT 2
+DRUM HIHAT 2.5
+
+DRUM CLAP 3
+DRUM HIHAT 3
+DRUM HIHAT 3.5
+
+You can also put claps at any decimal beat, such as:
+
+DRUM CLAP 0.25
+DRUM CLAP 1.25
+DRUM CLAP 2.5
+DRUM CLAP 3.75
+
+So there are no special restrictions on where the clap can be placed. LOW_TOM, MID_TOM, HIGH_TOM, CRASH, RIDE, RIMSHOT, COWBELL, SHAKER, TAMBOURINE
