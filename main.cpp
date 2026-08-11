@@ -2165,6 +2165,31 @@ LRESULT CALLBACK WindowProcedure(
                     NULL_BRUSH
                 );
         }
+        //====================================================
+        case WM_CTLCOLORSTATIC:
+{
+    HDC dc = (HDC)wParam;
+
+    SetTextColor(
+        dc,
+        TEXT
+    );
+
+    SetBkColor(
+        dc,
+        COLUMN
+    );
+
+    SetBkMode(
+        dc,
+        OPAQUE
+    );
+
+    static HBRUSH columnBrush =
+        CreateSolidBrush(COLUMN);
+
+    return (LRESULT)columnBrush;
+}
 
         // ====================================================
         // EDITOR COLOR
@@ -2191,31 +2216,6 @@ LRESULT CALLBACK WindowProcedure(
                 );
 
             return (LRESULT)editBrush;
-        }
-
-        // ====================================================
-        // STATIC LABEL COLOR
-        // ====================================================
-
-        case WM_CTLCOLORSTATIC:
-        {
-            HDC dc =
-                (HDC)wParam;
-
-            SetTextColor(
-                dc,
-                TEXT
-            );
-
-            SetBkMode(
-                dc,
-                TRANSPARENT
-            );
-
-            return (LRESULT)
-                GetStockObject(
-                    NULL_BRUSH
-                );
         }
 
         // ====================================================
