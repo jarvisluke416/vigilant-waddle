@@ -246,6 +246,10 @@ BASS A2 2 0.5
 BASS G2 2.5 0.5
 BASS F2 3 1
 So BASS has the exact same note range as PIANO in your current code: 60 notes, C2–B6. GUITAR Absolutely. GUITAR works the same way in your code and supports all 60 notes from C2 through B6.
+
+
+
+
 Guitar Chords
 Format:
 C Major*
