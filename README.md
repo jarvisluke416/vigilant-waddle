@@ -164,10 +164,18 @@ C Major*
 BASS C2 0 2
 BASS E2 0 2
 BASS G2 0 2/
+C# Major*
+BASS C#2 0 2
+BASS F2 0 2
+BASS G#2 0 2/
 D Major*
 BASS D2 0 2
 BASS F#2 0 2
 BASS A2 0 2/
+D# Major*
+BASS D#2 0 2
+BASS G2 0 2
+BASS A#2 0 2/
 E Major*
 BASS E2 0 2
 BASS G#2 0 2
@@ -176,14 +184,26 @@ F Major*
 BASS F2 0 2
 BASS A2 0 2
 BASS C3 0 2/
+F# Major*
+BASS F#2 0 2
+BASS A#2 0 2
+BASS C#3 0 2/
 G Major*
 BASS G2 0 2
 BASS B2 0 2
 BASS D3 0 2/
+G# Major*
+BASS G#2 0 2
+BASS C3 0 2
+BASS D#3 0 2/
 A Major*
 BASS A2 0 2
 BASS C#3 0 2
 BASS E3 0 2/
+A# Major*
+BASS A#2 0 2
+BASS D3 0 2
+BASS F3 0 2/
 B Major*
 BASS B2 0 2
 BASS D#3 0 2
