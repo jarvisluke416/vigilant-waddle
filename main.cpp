@@ -4,7 +4,9 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
-#include <cstring>
+#include <condition_variable>
+#include <fstream>
+#include <mutex>
 #include <random>
 #include <sstream>
 #include <string>
@@ -12,7 +14,6 @@
 #include <vector>
 
 #pragma comment(lib, "winmm.lib")
-#pragma comment(lib, "gdi32.lib")
 
 // ============================================================
 // SETTINGS
@@ -44,9 +45,6 @@ const COLORREF COLUMN_BORDER = RGB(55, 55, 65);
 const COLORREF TEXT = RGB(0, 255, 0);
 const COLORREF BUTTON_TEXT = RGB(0, 255, 0);
 
-const COLORREF EDIT_BACKGROUND = RGB(15, 15, 20);
-const COLORREF EDIT_TEXT = RGB(0, 255, 0);
-
 // ============================================================
 // GLOBAL STATE
 // ============================================================
@@ -71,7 +69,23 @@ HWND pitchLabel[PLAYER_COUNT] = {};
 
 HWND songEditor[PLAYER_COUNT] = {};
 
+HWND universalPlayButton = nullptr;
+
 HWND mainWindow = nullptr;
+
+// ============================================================
+// UNIVERSAL START SYNCHRONIZATION
+// ============================================================
+
+std::mutex universalMutex;
+std::condition_variable universalCondition;
+
+int universalWaitingPlayers = 0;
+
+bool universalStartRequested = false;
+bool universalCancelRequested = false;
+
+std::atomic<bool> universalPlaying = false;
 
 // ============================================================
 // RANDOM
@@ -166,14 +180,112 @@ double noteFrequency(const std::string& note)
     if (note == "B5")  return 987.77;
 
     if (note == "C6")  return 1046.50;
+    if (note == "C#6") return 1108.73;
     if (note == "D6")  return 1174.66;
+    if (note == "D#6") return 1244.51;
     if (note == "E6")  return 1318.51;
     if (note == "F6")  return 1396.91;
+    if (note == "F#6") return 1479.98;
     if (note == "G6")  return 1567.98;
+    if (note == "G#6") return 1661.22;
     if (note == "A6")  return 1760.00;
+    if (note == "A#6") return 1864.66;
     if (note == "B6")  return 1975.53;
 
     return 0.0;
+}
+
+// ============================================================
+// INSTRUMENT SOUND
+// ============================================================
+
+double instrumentWave(
+    const std::string& instrument,
+    double frequency,
+    double t)
+{
+    double phase =
+        2.0 * PI * frequency * t;
+
+    if (instrument == "BASS")
+    {
+        return
+            std::sin(phase)
+            * 0.75
+            +
+            std::sin(phase * 2.0)
+            * 0.20;
+    }
+
+    if (instrument == "GUITAR")
+    {
+        return
+            std::sin(phase)
+            * 0.70
+            +
+            std::sin(phase * 2.0)
+            * 0.20
+            +
+            std::sin(phase * 3.0)
+            * 0.10;
+    }
+
+    if (instrument == "SYNTH")
+    {
+        double saw =
+            2.0 *
+            (frequency * t -
+             std::floor(
+                 frequency * t + 0.5
+             ));
+
+        return saw * 0.55;
+    }
+
+    if (instrument == "ORGAN")
+    {
+        return
+            std::sin(phase)
+            * 0.55
+            +
+            std::sin(phase * 2.0)
+            * 0.25
+            +
+            std::sin(phase * 3.0)
+            * 0.15;
+    }
+
+    if (instrument == "FLUTE")
+    {
+        return
+            std::sin(phase)
+            * 0.90
+            +
+            std::sin(phase * 2.0)
+            * 0.08;
+    }
+
+    if (instrument == "BELL")
+    {
+        return
+            std::sin(phase)
+            * std::exp(-2.5 * t)
+            +
+            std::sin(phase * 2.01)
+            * std::exp(-4.0 * t)
+            * 0.35;
+    }
+
+    // Default = PIANO
+    return
+        std::sin(phase)
+        * 0.80
+        +
+        std::sin(phase * 2.0)
+        * 0.15
+        +
+        std::sin(phase * 3.0)
+        * 0.05;
 }
 
 // ============================================================
@@ -186,14 +298,18 @@ double kick(double t)
         return 0.0;
 
     double frequency =
-        150.0 * std::exp(-12.0 * t) + 45.0;
+        150.0 *
+        std::exp(-12.0 * t)
+        + 45.0;
 
     double envelope =
         std::exp(-7.0 * t);
 
     return
         std::sin(
-            2.0 * PI * frequency * t
+            2.0 * PI *
+            frequency *
+            t
         )
         * envelope;
 }
@@ -211,7 +327,9 @@ double snare(double t)
 
     double body =
         std::sin(
-            2.0 * PI * 180.0 * t
+            2.0 * PI *
+            180.0 *
+            t
         )
         *
         std::exp(-20.0 * t);
@@ -283,7 +401,9 @@ double clap(double t)
         envelope;
 }
 
-double tom(double t, double frequency)
+double tom(
+    double t,
+    double frequency)
 {
     if (t < 0 || t >= 0.6)
         return 0.0;
@@ -299,7 +419,9 @@ double tom(double t, double frequency)
 
     return
         std::sin(
-            2.0 * PI * pitch * t
+            2.0 * PI *
+            pitch *
+            t
         )
         *
         envelope;
@@ -331,7 +453,9 @@ double ride(double t)
 
     double tone =
         std::sin(
-            2.0 * PI * 3500.0 * t
+            2.0 * PI *
+            3500.0 *
+            t
         );
 
     return
@@ -355,7 +479,9 @@ double rimshot(double t)
 
     return
         std::sin(
-            2.0 * PI * 1200.0 * t
+            2.0 * PI *
+            1200.0 *
+            t
         )
         *
         envelope
@@ -379,12 +505,16 @@ double cowbell(double t)
 
     double tone1 =
         std::sin(
-            2.0 * PI * 540.0 * t
+            2.0 * PI *
+            540.0 *
+            t
         );
 
     double tone2 =
         std::sin(
-            2.0 * PI * 800.0 * t
+            2.0 * PI *
+            800.0 *
+            t
         );
 
     return
@@ -424,7 +554,9 @@ double tambourine(double t)
 
     double ring =
         std::sin(
-            2.0 * PI * 4000.0 * t
+            2.0 * PI *
+            4000.0 *
+            t
         );
 
     return
@@ -448,14 +580,14 @@ double makeDrum(
 {
     if (
         type == "KICK" ||
-        type == "BASS_DRUM"
-    )
+        type == "BASS_DRUM")
         return kick(t);
 
     if (type == "SNARE")
         return snare(t);
 
-    if (type == "HIHAT")
+    if (type == "HIHAT" ||
+        type == "CLOSED_HIHAT")
         return closedHiHat(t);
 
     if (type == "OPEN_HIHAT")
@@ -495,250 +627,23 @@ double makeDrum(
 }
 
 // ============================================================
-// INSTRUMENT SYNTHESIZERS
+// READ TEXT FROM EDITOR
 // ============================================================
 
-double pianoSound(
-    double frequency,
-    double t,
-    double duration)
+std::string GetEditorText(int playerIndex)
 {
-    double envelope =
-        std::exp(-3.5 * t);
-
-    double attack =
-        std::min(1.0, t / 0.005);
-
-    double remaining =
-        duration - t;
-
-    if (remaining < 0.08)
+    if (
+        playerIndex < 0 ||
+        playerIndex >= PLAYER_COUNT ||
+        !songEditor[playerIndex])
     {
-        envelope *=
-            std::max(
-                0.0,
-                remaining / 0.08
-            );
-    }
-
-    double fundamental =
-        std::sin(
-            2.0 * PI * frequency * t
-        );
-
-    double harmonic2 =
-        0.45 *
-        std::sin(
-            2.0 * PI *
-            frequency * 2.0 *
-            t
-        );
-
-    double harmonic3 =
-        0.20 *
-        std::sin(
-            2.0 * PI *
-            frequency * 3.0 *
-            t
-        );
-
-    return
-        (
-            fundamental +
-            harmonic2 +
-            harmonic3
-        )
-        *
-        envelope
-        *
-        attack;
-}
-
-double bassSound(
-    double frequency,
-    double t,
-    double duration)
-{
-    double envelope =
-        std::exp(-2.2 * t);
-
-    double remaining =
-        duration - t;
-
-    if (remaining < 0.08)
-    {
-        envelope *=
-            std::max(
-                0.0,
-                remaining / 0.08
-            );
-    }
-
-    double fundamental =
-        std::sin(
-            2.0 * PI * frequency * t
-        );
-
-    double harmonic =
-        0.35 *
-        std::sin(
-            2.0 * PI *
-            frequency * 2.0 *
-            t
-        );
-
-    return
-        (
-            fundamental +
-            harmonic
-        )
-        *
-        envelope;
-}
-
-double guitarSound(
-    double frequency,
-    double t,
-    double duration)
-{
-    double envelope =
-        std::exp(-5.5 * t);
-
-    double attack =
-        std::min(1.0, t / 0.003);
-
-    double remaining =
-        duration - t;
-
-    if (remaining < 0.06)
-    {
-        envelope *=
-            std::max(
-                0.0,
-                remaining / 0.06
-            );
-    }
-
-    double fundamental =
-        std::sin(
-            2.0 * PI * frequency * t
-        );
-
-    double harmonic2 =
-        0.30 *
-        std::sin(
-            2.0 * PI *
-            frequency * 2.0 *
-            t
-        );
-
-    double harmonic3 =
-        0.15 *
-        std::sin(
-            2.0 * PI *
-            frequency * 3.0 *
-            t
-        );
-
-    return
-        (
-            fundamental +
-            harmonic2 +
-            harmonic3
-        )
-        *
-        envelope
-        *
-        attack;
-}
-
-double synthSound(
-    double frequency,
-    double t,
-    double duration)
-{
-    double envelope =
-        std::exp(-1.5 * t);
-
-    double remaining =
-        duration - t;
-
-    if (remaining < 0.05)
-    {
-        envelope *=
-            std::max(
-                0.0,
-                remaining / 0.05
-            );
-    }
-
-    double phase =
-        std::fmod(
-            frequency * t,
-            1.0
-        );
-
-    double saw =
-        2.0 * phase - 1.0;
-
-    return
-        saw *
-        envelope;
-}
-
-double makeInstrument(
-    const std::string& instrument,
-    double frequency,
-    double t,
-    double duration)
-{
-    if (instrument == "PIANO")
-        return pianoSound(
-            frequency,
-            t,
-            duration
-        );
-
-    if (instrument == "BASS")
-        return bassSound(
-            frequency,
-            t,
-            duration
-        );
-
-    if (instrument == "GUITAR")
-        return guitarSound(
-            frequency,
-            t,
-            duration
-        );
-
-    if (instrument == "SYNTH")
-        return synthSound(
-            frequency,
-            t,
-            duration
-        );
-
-    // Default NOTE sound
-    return pianoSound(
-        frequency,
-        t,
-        duration
-    );
-}
-
-// ============================================================
-// GET TEXT FROM EDITOR
-// ============================================================
-
-std::string GetEditorText(HWND editor)
-{
-    if (!editor)
         return "";
+    }
 
     int length =
-        GetWindowTextLengthA(editor);
+        GetWindowTextLengthA(
+            songEditor[playerIndex]
+        );
 
     if (length <= 0)
         return "";
@@ -748,7 +653,7 @@ std::string GetEditorText(HWND editor)
     );
 
     GetWindowTextA(
-        editor,
+        songEditor[playerIndex],
         buffer.data(),
         length + 1
     );
@@ -759,7 +664,7 @@ std::string GetEditorText(HWND editor)
 }
 
 // ============================================================
-// LOAD SONG FROM TEXT INPUT
+// LOAD SONG FROM EDITOR TEXT
 // ============================================================
 
 bool LoadSongFromText(
@@ -775,48 +680,19 @@ bool LoadSongFromText(
     tempo = 120.0;
     loopLengthBeats = 4.0;
 
-    std::istringstream input(text);
+    std::istringstream songFile(text);
 
-    std::string line;
+    std::string command;
 
-    while (std::getline(input, line))
+    while (songFile >> command)
     {
-        // Remove carriage return
-        if (
-            !line.empty() &&
-            line.back() == '\r'
-        )
-        {
-            line.pop_back();
-        }
-
-        // Skip empty lines
-        if (line.empty())
-            continue;
-
-        // Skip comments
-        if (
-            line[0] == '#' ||
-            line[0] == ';'
-        )
-            continue;
-
-        std::istringstream parser(line);
-
-        std::string command;
-
-        parser >> command;
-
-        if (command.empty())
-            continue;
-
         // ----------------------------------------------------
         // TEMPO
         // ----------------------------------------------------
 
         if (command == "TEMPO")
         {
-            parser >> tempo;
+            songFile >> tempo;
 
             if (tempo < MIN_TEMPO)
                 tempo = MIN_TEMPO;
@@ -831,16 +707,23 @@ bool LoadSongFromText(
 
         else if (command == "LENGTH")
         {
-            parser >> loopLengthBeats;
+            songFile >> loopLengthBeats;
 
             if (loopLengthBeats <= 0.0)
                 loopLengthBeats = 4.0;
         }
 
         // ----------------------------------------------------
-        // OLD NOTE FORMAT
+        // NOTE
         //
         // NOTE C4 0 1
+        //
+        // or
+        //
+        // PIANO C4 0 1
+        // BASS C3 0 1
+        // GUITAR E4 1 1
+        // SYNTH G4 2 1
         // ----------------------------------------------------
 
         else if (command == "NOTE")
@@ -849,173 +732,63 @@ bool LoadSongFromText(
             double startBeat;
             double durationBeats;
 
-            if (
-                parser >>
-                noteName >>
-                startBeat >>
-                durationBeats)
-            {
-                double frequency =
-                    noteFrequency(noteName);
+            songFile
+                >> noteName
+                >> startBeat
+                >> durationBeats;
 
-                if (frequency > 0.0)
-                {
-                    notes.push_back(
-                        {
-                            startBeat,
-                            durationBeats,
-                            frequency,
-                            "PIANO"
-                        }
-                    );
-                }
+            double frequency =
+                noteFrequency(noteName);
+
+            if (frequency > 0.0)
+            {
+                notes.push_back(
+                    {
+                        startBeat,
+                        durationBeats,
+                        frequency,
+                        "PIANO"
+                    }
+                );
             }
         }
 
-        // ----------------------------------------------------
-        // PIANO
-        //
-        // PIANO C4 0 1
-        // ----------------------------------------------------
-
-        else if (command == "PIANO")
+        else if (
+            command == "PIANO" ||
+            command == "BASS" ||
+            command == "GUITAR" ||
+            command == "SYNTH" ||
+            command == "ORGAN" ||
+            command == "FLUTE" ||
+            command == "BELL")
         {
             std::string noteName;
             double startBeat;
             double durationBeats;
 
-            if (
-                parser >>
-                noteName >>
-                startBeat >>
-                durationBeats)
+            songFile
+                >> noteName
+                >> startBeat
+                >> durationBeats;
+
+            double frequency =
+                noteFrequency(noteName);
+
+            if (frequency > 0.0)
             {
-                double frequency =
-                    noteFrequency(noteName);
-
-                if (frequency > 0.0)
-                {
-                    notes.push_back(
-                        {
-                            startBeat,
-                            durationBeats,
-                            frequency,
-                            "PIANO"
-                        }
-                    );
-                }
-            }
-        }
-
-        // ----------------------------------------------------
-        // BASS
-        //
-        // BASS C3 0 1
-        // ----------------------------------------------------
-
-        else if (command == "BASS")
-        {
-            std::string noteName;
-            double startBeat;
-            double durationBeats;
-
-            if (
-                parser >>
-                noteName >>
-                startBeat >>
-                durationBeats)
-            {
-                double frequency =
-                    noteFrequency(noteName);
-
-                if (frequency > 0.0)
-                {
-                    notes.push_back(
-                        {
-                            startBeat,
-                            durationBeats,
-                            frequency,
-                            "BASS"
-                        }
-                    );
-                }
-            }
-        }
-
-        // ----------------------------------------------------
-        // GUITAR
-        //
-        // GUITAR E4 1 1
-        // ----------------------------------------------------
-
-        else if (command == "GUITAR")
-        {
-            std::string noteName;
-            double startBeat;
-            double durationBeats;
-
-            if (
-                parser >>
-                noteName >>
-                startBeat >>
-                durationBeats)
-            {
-                double frequency =
-                    noteFrequency(noteName);
-
-                if (frequency > 0.0)
-                {
-                    notes.push_back(
-                        {
-                            startBeat,
-                            durationBeats,
-                            frequency,
-                            "GUITAR"
-                        }
-                    );
-                }
-            }
-        }
-
-        // ----------------------------------------------------
-        // SYNTH
-        //
-        // SYNTH G4 2 1
-        // ----------------------------------------------------
-
-        else if (command == "SYNTH")
-        {
-            std::string noteName;
-            double startBeat;
-            double durationBeats;
-
-            if (
-                parser >>
-                noteName >>
-                startBeat >>
-                durationBeats)
-            {
-                double frequency =
-                    noteFrequency(noteName);
-
-                if (frequency > 0.0)
-                {
-                    notes.push_back(
-                        {
-                            startBeat,
-                            durationBeats,
-                            frequency,
-                            "SYNTH"
-                        }
-                    );
-                }
+                notes.push_back(
+                    {
+                        startBeat,
+                        durationBeats,
+                        frequency,
+                        command
+                    }
+                );
             }
         }
 
         // ----------------------------------------------------
         // DRUM
-        //
-        // DRUM KICK 0
         // ----------------------------------------------------
 
         else if (command == "DRUM")
@@ -1023,18 +796,16 @@ bool LoadSongFromText(
             std::string drumType;
             double startBeat;
 
-            if (
-                parser >>
-                drumType >>
-                startBeat)
-            {
-                drums.push_back(
-                    {
-                        startBeat,
-                        drumType
-                    }
-                );
-            }
+            songFile
+                >> drumType
+                >> startBeat;
+
+            drums.push_back(
+                {
+                    startBeat,
+                    drumType
+                }
+            );
         }
     }
 
@@ -1046,7 +817,7 @@ bool LoadSongFromText(
 // ============================================================
 
 bool GenerateAudio(
-    const std::string& songText,
+    const std::string& text,
     double tempoOverride,
     int pitchSemitones,
     std::vector<short>& samples)
@@ -1058,7 +829,7 @@ bool GenerateAudio(
     double loopLengthBeats;
 
     if (!LoadSongFromText(
-        songText,
+        text,
         notes,
         drums,
         fileTempo,
@@ -1115,7 +886,7 @@ bool GenerateAudio(
     );
 
     // ========================================================
-    // MELODY / INSTRUMENTS
+    // MELODY
     // ========================================================
 
     for (const NoteEvent& note : notes)
@@ -1167,17 +938,41 @@ bool GenerateAudio(
                 /
                 SAMPLE_RATE;
 
+            double envelope = 1.0;
+
+            if (time < 0.01)
+            {
+                envelope =
+                    time / 0.01;
+            }
+
+            double remaining =
+                durationSeconds -
+                time;
+
+            if (remaining < 0.05)
+            {
+                envelope =
+                    std::min(
+                        envelope,
+                        std::max(
+                            0.0,
+                            remaining / 0.05
+                        )
+                    );
+            }
+
             double wave =
-                makeInstrument(
+                instrumentWave(
                     note.instrument,
                     shiftedFrequency,
-                    time,
-                    durationSeconds
+                    time
                 );
 
             audio[index] +=
                 wave *
-                0.22;
+                envelope *
+                0.25;
         }
     }
 
@@ -1269,68 +1064,45 @@ bool GenerateAudio(
 }
 
 // ============================================================
-// BUTTON IDs
+// BUTTON IDS
 // ============================================================
 
-#define ID_PLAY1          101
-#define ID_LOOP1          102
-#define ID_TEMPO_MINUS1   103
-#define ID_TEMPO_PLUS1    104
-#define ID_PITCH_MINUS1   105
-#define ID_PITCH_PLUS1    106
+#define ID_UNIVERSAL_PLAY 900
 
-#define ID_PLAY2          201
-#define ID_LOOP2          202
-#define ID_TEMPO_MINUS2   203
-#define ID_TEMPO_PLUS2    204
-#define ID_PITCH_MINUS2   205
-#define ID_PITCH_PLUS2    206
+#define ID_PLAY1         101
+#define ID_LOOP1         102
+#define ID_TEMPO_MINUS1  103
+#define ID_TEMPO_PLUS1   104
+#define ID_PITCH_MINUS1  105
+#define ID_PITCH_PLUS1   106
 
-#define ID_PLAY3          301
-#define ID_LOOP3          302
-#define ID_TEMPO_MINUS3   303
-#define ID_TEMPO_PLUS3    304
-#define ID_PITCH_MINUS3   305
-#define ID_PITCH_PLUS3    306
+#define ID_PLAY2         201
+#define ID_LOOP2         202
+#define ID_TEMPO_MINUS2  203
+#define ID_TEMPO_PLUS2   204
+#define ID_PITCH_MINUS2  205
+#define ID_PITCH_PLUS2   206
 
-#define ID_PLAY4          401
-#define ID_LOOP4          402
-#define ID_TEMPO_MINUS4   403
-#define ID_TEMPO_PLUS4    404
-#define ID_PITCH_MINUS4   405
-#define ID_PITCH_PLUS4    406
+#define ID_PLAY3         301
+#define ID_LOOP3         302
+#define ID_TEMPO_MINUS3  303
+#define ID_TEMPO_PLUS3   304
+#define ID_PITCH_MINUS3  305
+#define ID_PITCH_PLUS3   306
 
-// ============================================================
-// EDITOR INITIAL TEXT
-// ============================================================
-
-const char* DEFAULT_SONG =
-    "TEMPO 120\r\n"
-    "LENGTH 4\r\n"
-    "\r\n"
-    "PIANO C4 0 1\r\n"
-    "BASS C3 0 1\r\n"
-    "GUITAR E4 1 1\r\n"
-    "SYNTH G4 2 1\r\n"
-    "\r\n"
-    "DRUM KICK 0\r\n"
-    "DRUM HIHAT 0\r\n"
-    "DRUM HIHAT 0.5\r\n"
-    "DRUM KICK 1\r\n"
-    "DRUM HIHAT 1\r\n"
-    "DRUM HIHAT 1.5\r\n"
-    "DRUM KICK 2\r\n"
-    "DRUM HIHAT 2\r\n"
-    "DRUM HIHAT 2.5\r\n"
-    "DRUM KICK 3\r\n"
-    "DRUM HIHAT 3\r\n"
-    "DRUM HIHAT 3.5\r\n";
+#define ID_PLAY4         401
+#define ID_LOOP4         402
+#define ID_TEMPO_MINUS4  403
+#define ID_TEMPO_PLUS4   404
+#define ID_PITCH_MINUS4  405
+#define ID_PITCH_PLUS4   406
 
 // ============================================================
 // DISPLAY HELPERS
 // ============================================================
 
-void UpdateTempoDisplay(int playerIndex)
+void UpdateTempoDisplay(
+    int playerIndex)
 {
     if (
         playerIndex < 0 ||
@@ -1361,7 +1133,8 @@ void UpdateTempoDisplay(int playerIndex)
     );
 }
 
-void UpdatePitchDisplay(int playerIndex)
+void UpdatePitchDisplay(
+    int playerIndex)
 {
     if (
         playerIndex < 0 ||
@@ -1400,10 +1173,44 @@ void UpdatePitchDisplay(int playerIndex)
 }
 
 // ============================================================
-// RESIZE PLAYER CONTROLS
+// UPDATE PLAY BUTTONS
 // ============================================================
 
-void ResizePlayerButtons(HWND window)
+void UpdatePlayButtons()
+{
+    for (
+        int i = 0;
+        i < PLAYER_COUNT;
+        ++i)
+    {
+        if (playButton[i])
+        {
+            SetWindowTextA(
+                playButton[i],
+                playing[i]
+                ? "STOP"
+                : "PLAY"
+            );
+        }
+    }
+
+    if (universalPlayButton)
+    {
+        SetWindowTextA(
+            universalPlayButton,
+            universalPlaying
+            ? "STOP ALL"
+            : "PLAY ALL"
+        );
+    }
+}
+
+// ============================================================
+// RESIZE
+// ============================================================
+
+void ResizePlayerButtons(
+    HWND window)
 {
     RECT rect;
 
@@ -1414,9 +1221,6 @@ void ResizePlayerButtons(HWND window)
 
     int windowWidth =
         rect.right;
-
-    int windowHeight =
-        rect.bottom;
 
     int columnWidth =
         windowWidth /
@@ -1438,10 +1242,6 @@ void ResizePlayerButtons(HWND window)
         if (buttonWidth < 100)
             buttonWidth = 100;
 
-        // ----------------------------------------------------
-        // PLAY
-        // ----------------------------------------------------
-
         MoveWindow(
             playButton[i],
             x,
@@ -1451,22 +1251,14 @@ void ResizePlayerButtons(HWND window)
             TRUE
         );
 
-        // ----------------------------------------------------
-        // LOOP
-        // ----------------------------------------------------
-
         MoveWindow(
             loopButton[i],
             x,
             125,
             buttonWidth,
-            38,
+            35,
             TRUE
         );
-
-        // ----------------------------------------------------
-        // TEMPO MINUS
-        // ----------------------------------------------------
 
         int smallWidth =
             (buttonWidth - 10) / 2;
@@ -1476,13 +1268,9 @@ void ResizePlayerButtons(HWND window)
             x,
             170,
             smallWidth,
-            38,
+            35,
             TRUE
         );
-
-        // ----------------------------------------------------
-        // TEMPO LABEL
-        // ----------------------------------------------------
 
         MoveWindow(
             tempoLabel[i],
@@ -1491,118 +1279,128 @@ void ResizePlayerButtons(HWND window)
             buttonWidth -
                 smallWidth -
                 5,
-            38,
+            35,
             TRUE
         );
-
-        // ----------------------------------------------------
-        // TEMPO PLUS
-        // ----------------------------------------------------
 
         MoveWindow(
             tempoPlusButton[i],
             x,
-            213,
+            210,
             buttonWidth,
-            38,
+            35,
             TRUE
         );
-
-        // ----------------------------------------------------
-        // PITCH MINUS
-        // ----------------------------------------------------
 
         MoveWindow(
             pitchMinusButton[i],
             x,
-            258,
+            250,
             smallWidth,
-            38,
+            35,
             TRUE
         );
-
-        // ----------------------------------------------------
-        // PITCH LABEL
-        // ----------------------------------------------------
 
         MoveWindow(
             pitchLabel[i],
             x + smallWidth + 5,
-            258,
+            250,
             buttonWidth -
                 smallWidth -
                 5,
-            38,
+            35,
             TRUE
         );
-
-        // ----------------------------------------------------
-        // PITCH PLUS
-        // ----------------------------------------------------
 
         MoveWindow(
             pitchPlusButton[i],
             x,
-            301,
+            290,
             buttonWidth,
-            38,
+            35,
             TRUE
         );
 
-        // ----------------------------------------------------
-        // SONG EDITOR
-        //
-        // Multiline + wrapping.
-        // No horizontal scrollbar.
-        // ----------------------------------------------------
-
-        int editorY =
-            350;
-
         int editorHeight =
             std::max(
-                180,
-                windowHeight - editorY - 20
+                150L,
+                static_cast<LONG>(
+                    rect.bottom - 340
+                )
             );
 
         MoveWindow(
             songEditor[i],
             x,
-            editorY,
+            335,
             buttonWidth,
             editorHeight,
+            TRUE
+        );
+    }
+
+    if (universalPlayButton)
+    {
+        MoveWindow(
+            universalPlayButton,
+            15,
+            5,
+            windowWidth - 30,
+            45,
             TRUE
         );
     }
 }
 
 // ============================================================
-// PLAY ONE PLAYER
+// UNIVERSAL START WAIT
 // ============================================================
 
-void PlaySong(int playerIndex)
+bool WaitForUniversalStart()
+{
+    std::unique_lock<std::mutex> lock(
+        universalMutex
+    );
+
+    if (!universalStartRequested)
+        return true;
+
+    universalWaitingPlayers++;
+
+    universalCondition.notify_all();
+
+    universalCondition.wait(
+        lock,
+        []()
+        {
+            return
+                !universalStartRequested;
+        }
+    );
+
+    if (universalCancelRequested)
+        return false;
+
+    return true;
+}
+
+// ============================================================
+// PLAY SONG
+// ============================================================
+
+void PlaySong(
+    int playerIndex,
+    bool synchronizedStart)
 {
     if (
         playerIndex < 0 ||
         playerIndex >= PLAYER_COUNT)
         return;
 
-    if (playing[playerIndex])
-        return;
+    const std::string text =
+        GetEditorText(playerIndex);
 
-    playing[playerIndex] = true;
-    stopRequested[playerIndex] = false;
-
-    // --------------------------------------------------------
-    // Read the text directly from this player's editor.
-    // --------------------------------------------------------
-
-    std::string songText =
-        GetEditorText(
-            songEditor[playerIndex]
-        );
-
-    if (songText.empty())
+    if (text.empty())
     {
         MessageBoxA(
             mainWindow,
@@ -1623,47 +1421,27 @@ void PlaySong(int playerIndex)
         return;
     }
 
-    // --------------------------------------------------------
-    // Get tempo from the text.
-    // --------------------------------------------------------
-
     std::vector<NoteEvent> tempNotes;
     std::vector<DrumEvent> tempDrums;
 
     double fileTempo = 120.0;
     double loopLengthBeats = 4.0;
 
-    if (!LoadSongFromText(
-        songText,
+    LoadSongFromText(
+        text,
         tempNotes,
         tempDrums,
         fileTempo,
-        loopLengthBeats))
+        loopLengthBeats
+    );
+
+    if (
+        currentTempo[playerIndex].load()
+        <= 0.0)
     {
-        MessageBoxA(
-            mainWindow,
-            "Could not read the song text.",
-            "Song Error",
-            MB_OK | MB_ICONERROR
-        );
-
-        playing[playerIndex] = false;
-
-        PostMessage(
-            mainWindow,
-            WM_USER + playerIndex + 1,
-            0,
-            0
-        );
-
-        return;
+        currentTempo[playerIndex] =
+            fileTempo;
     }
-
-    // If the user has not changed tempo yet,
-    // use the TEMPO value from the editor.
-
-    currentTempo[playerIndex] =
-        fileTempo;
 
     UpdateTempoDisplay(
         playerIndex
@@ -1673,9 +1451,9 @@ void PlaySong(int playerIndex)
         playerIndex
     );
 
-    // --------------------------------------------------------
-    // AUDIO FORMAT
-    // --------------------------------------------------------
+    // ========================================================
+    // OPEN AUDIO DEVICE
+    // ========================================================
 
     WAVEFORMATEX format = {};
 
@@ -1752,10 +1530,6 @@ void PlaySong(int playerIndex)
         AUDIO_BUFFER_COUNT
     ] = {};
 
-    // --------------------------------------------------------
-    // Generate buffer
-    // --------------------------------------------------------
-
     auto generateBuffer =
         [&](int bufferIndex) -> bool
     {
@@ -1766,18 +1540,15 @@ void PlaySong(int playerIndex)
             currentPitch[playerIndex].load();
 
         return GenerateAudio(
-            songText,
+            text,
             tempo,
             pitch,
             audioSamples[bufferIndex]
         );
     };
 
-    // --------------------------------------------------------
-    // Initial buffers
-    // --------------------------------------------------------
-
-    if (!generateBuffer(0))
+    if (!generateBuffer(0) ||
+        !generateBuffer(1))
     {
         waveOutClose(
             audioDevice
@@ -1795,27 +1566,9 @@ void PlaySong(int playerIndex)
         return;
     }
 
-    if (!generateBuffer(1))
-    {
-        waveOutClose(
-            audioDevice
-        );
-
-        playing[playerIndex] = false;
-
-        PostMessage(
-            mainWindow,
-            WM_USER + playerIndex + 1,
-            0,
-            0
-        );
-
-        return;
-    }
-
-    // --------------------------------------------------------
-    // Prepare and queue initial buffers
-    // --------------------------------------------------------
+    // ========================================================
+    // PREPARE BOTH BUFFERS
+    // ========================================================
 
     for (
         int i = 0;
@@ -1838,50 +1591,6 @@ void PlaySong(int playerIndex)
 
         result =
             waveOutPrepareHeader(
-                audioDevice,
-                &headers[i],
-                sizeof(WAVEHDR)
-            );
-
-        if (
-            result !=
-            MMSYSERR_NOERROR)
-        {
-            for (
-                int j = 0;
-                j < i;
-                ++j)
-            {
-                if (prepared[j])
-                {
-                    waveOutUnprepareHeader(
-                        audioDevice,
-                        &headers[j],
-                        sizeof(WAVEHDR)
-                    );
-                }
-            }
-
-            waveOutClose(
-                audioDevice
-            );
-
-            playing[playerIndex] = false;
-
-            PostMessage(
-                mainWindow,
-                WM_USER + playerIndex + 1,
-                0,
-                0
-            );
-
-            return;
-        }
-
-        prepared[i] = true;
-
-        result =
-            waveOutWrite(
                 audioDevice,
                 &headers[i],
                 sizeof(WAVEHDR)
@@ -1926,12 +1635,88 @@ void PlaySong(int playerIndex)
             return;
         }
 
+        prepared[i] = true;
+    }
+
+    // ========================================================
+    // UNIVERSAL PLAY:
+    //
+    // All four players reach this point and wait.
+    // ========================================================
+
+    if (synchronizedStart)
+    {
+        if (!WaitForUniversalStart())
+        {
+            waveOutReset(
+                audioDevice
+            );
+
+            for (
+                int i = 0;
+                i < AUDIO_BUFFER_COUNT;
+                ++i)
+            {
+                if (prepared[i])
+                {
+                    waveOutUnprepareHeader(
+                        audioDevice,
+                        &headers[i],
+                        sizeof(WAVEHDR)
+                    );
+                }
+            }
+
+            waveOutClose(
+                audioDevice
+            );
+
+            playing[playerIndex] = false;
+
+            PostMessage(
+                mainWindow,
+                WM_USER + playerIndex + 1,
+                0,
+                0
+            );
+
+            return;
+        }
+    }
+
+    // ========================================================
+    // WRITE FIRST TWO BUFFERS
+    // ========================================================
+
+    for (
+        int i = 0;
+        i < AUDIO_BUFFER_COUNT;
+        ++i)
+    {
+        if (stopRequested[playerIndex])
+            break;
+
+        result =
+            waveOutWrite(
+                audioDevice,
+                &headers[i],
+                sizeof(WAVEHDR)
+            );
+
+        if (
+            result !=
+            MMSYSERR_NOERROR)
+        {
+            stopRequested[playerIndex] = true;
+            break;
+        }
+
         queued[i] = true;
     }
 
-    // --------------------------------------------------------
-    // Playback loop
-    // --------------------------------------------------------
+    // ========================================================
+    // PLAYBACK LOOP
+    // ========================================================
 
     while (
         !stopRequested[playerIndex])
@@ -1968,30 +1753,12 @@ void PlaySong(int playerIndex)
             if (stopRequested[playerIndex])
                 continue;
 
-            // ------------------------------------------------
-            // If loop is OFF, do not queue another buffer.
-            // ------------------------------------------------
-
             if (!looping[playerIndex])
                 continue;
 
-            // ------------------------------------------------
-            // Re-read the editor.
-            //
-            // This means changes made in the editor can be
-            // picked up the next time the loop regenerates.
-            // ------------------------------------------------
-
-            songText =
-                GetEditorText(
-                    songEditor[playerIndex]
-                );
-
             if (!generateBuffer(i))
             {
-                stopRequested[playerIndex] =
-                    true;
-
+                stopRequested[playerIndex] = true;
                 continue;
             }
 
@@ -2020,9 +1787,7 @@ void PlaySong(int playerIndex)
                 result !=
                 MMSYSERR_NOERROR)
             {
-                stopRequested[playerIndex] =
-                    true;
-
+                stopRequested[playerIndex] = true;
                 continue;
             }
 
@@ -2047,19 +1812,12 @@ void PlaySong(int playerIndex)
 
                 prepared[i] = false;
 
-                stopRequested[playerIndex] =
-                    true;
-
+                stopRequested[playerIndex] = true;
                 continue;
             }
 
             queued[i] = true;
         }
-
-        // ----------------------------------------------------
-        // Non-looping playback finishes when both buffers
-        // have completed.
-        // ----------------------------------------------------
 
         if (!looping[playerIndex])
         {
@@ -2088,9 +1846,9 @@ void PlaySong(int playerIndex)
         }
     }
 
-    // --------------------------------------------------------
-    // Stop audio
-    // --------------------------------------------------------
+    // ========================================================
+    // CLEAN UP
+    // ========================================================
 
     waveOutReset(
         audioDevice
@@ -2130,6 +1888,124 @@ void PlaySong(int playerIndex)
 }
 
 // ============================================================
+// START ALL PLAYERS
+// ============================================================
+
+void StartAllPlayers()
+{
+    if (universalPlaying)
+        return;
+
+    universalPlaying = true;
+
+    {
+        std::lock_guard<std::mutex> lock(
+            universalMutex
+        );
+
+        universalStartRequested = true;
+        universalCancelRequested = false;
+        universalWaitingPlayers = 0;
+    }
+
+    for (
+        int i = 0;
+        i < PLAYER_COUNT;
+        ++i)
+    {
+        stopRequested[i] = false;
+        playing[i] = true;
+    }
+
+    UpdatePlayButtons();
+
+    // Start all four threads.
+
+    for (
+        int i = 0;
+        i < PLAYER_COUNT;
+        ++i)
+    {
+        std::thread(
+            PlaySong,
+            i,
+            true
+        ).detach();
+    }
+
+    // Give the threads time to reach
+    // their synchronization point.
+
+    std::thread(
+        []()
+        {
+            std::unique_lock<std::mutex> lock(
+                universalMutex
+            );
+
+            universalCondition.wait(
+                lock,
+                []()
+                {
+                    return
+                        universalWaitingPlayers
+                        >= PLAYER_COUNT
+                        ||
+                        universalCancelRequested;
+                }
+            );
+
+            if (universalCancelRequested)
+            {
+                universalStartRequested = false;
+
+                universalCondition.notify_all();
+
+                return;
+            }
+
+            // =================================================
+            // RELEASE ALL FOUR PLAYERS TOGETHER
+            // =================================================
+
+            universalStartRequested = false;
+
+            universalCondition.notify_all();
+        }
+    ).detach();
+}
+
+// ============================================================
+// STOP ALL PLAYERS
+// ============================================================
+
+void StopAllPlayers()
+{
+    universalPlaying = false;
+
+    for (
+        int i = 0;
+        i < PLAYER_COUNT;
+        ++i)
+    {
+        stopRequested[i] = true;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(
+            universalMutex
+        );
+
+        universalCancelRequested = true;
+        universalStartRequested = false;
+    }
+
+    universalCondition.notify_all();
+
+    UpdatePlayButtons();
+}
+
+// ============================================================
 // WINDOW PROCEDURE
 // ============================================================
 
@@ -2142,7 +2018,7 @@ LRESULT CALLBACK WindowProcedure(
     switch (message)
     {
         // ====================================================
-        // BUTTON COLOR
+        // BUTTON TEXT COLOR
         // ====================================================
 
         case WM_CTLCOLORBTN:
@@ -2160,62 +2036,44 @@ LRESULT CALLBACK WindowProcedure(
                 TRANSPARENT
             );
 
-            return (LRESULT)
-                GetStockObject(
-                    NULL_BRUSH
-                );
+            return (LRESULT)GetStockObject(
+                NULL_BRUSH
+            );
         }
-        //====================================================
+
+        // ====================================================
+        // STATIC TEXT
+        //
+        // This also prevents the tempo/pitch digits
+        // from ghosting/blurring.
+        // ====================================================
+
         case WM_CTLCOLORSTATIC:
-{
-    HDC dc = (HDC)wParam;
-
-    SetTextColor(
-        dc,
-        TEXT
-    );
-
-    SetBkColor(
-        dc,
-        COLUMN
-    );
-
-    SetBkMode(
-        dc,
-        OPAQUE
-    );
-
-    static HBRUSH columnBrush =
-        CreateSolidBrush(COLUMN);
-
-    return (LRESULT)columnBrush;
-}
-
-        // ====================================================
-        // EDITOR COLOR
-        // ====================================================
-
-        case WM_CTLCOLOREDIT:
         {
             HDC dc =
                 (HDC)wParam;
 
             SetTextColor(
                 dc,
-                EDIT_TEXT
+                TEXT
             );
 
             SetBkColor(
                 dc,
-                EDIT_BACKGROUND
+                COLUMN
             );
 
-            static HBRUSH editBrush =
+            SetBkMode(
+                dc,
+                OPAQUE
+            );
+
+            static HBRUSH columnBrush =
                 CreateSolidBrush(
-                    EDIT_BACKGROUND
+                    COLUMN
                 );
 
-            return (LRESULT)editBrush;
+            return (LRESULT)columnBrush;
         }
 
         // ====================================================
@@ -2227,9 +2085,27 @@ LRESULT CALLBACK WindowProcedure(
             int button =
                 LOWORD(wParam);
 
-            // ------------------------------------------------
+            // =================================================
+            // UNIVERSAL PLAY
+            // =================================================
+
+            if (button == ID_UNIVERSAL_PLAY)
+            {
+                if (!universalPlaying)
+                {
+                    StartAllPlayers();
+                }
+                else
+                {
+                    StopAllPlayers();
+                }
+
+                break;
+            }
+
+            // =================================================
             // PLAYER 1
-            // ------------------------------------------------
+            // =================================================
 
             if (button == ID_PLAY1)
             {
@@ -2237,28 +2113,22 @@ LRESULT CALLBACK WindowProcedure(
 
                 if (!playing[p])
                 {
-                    stopRequested[p] =
-                        false;
+                    stopRequested[p] = false;
+                    playing[p] = true;
 
-                    SetWindowTextA(
-                        playButton[p],
-                        "STOP"
-                    );
+                    UpdatePlayButtons();
 
                     std::thread(
                         PlaySong,
-                        p
+                        p,
+                        false
                     ).detach();
                 }
                 else
                 {
-                    stopRequested[p] =
-                        true;
+                    stopRequested[p] = true;
 
-                    SetWindowTextA(
-                        playButton[p],
-                        "PLAY"
-                    );
+                    UpdatePlayButtons();
                 }
             }
 
@@ -2289,8 +2159,7 @@ LRESULT CALLBACK WindowProcedure(
                 if (tempo < MIN_TEMPO)
                     tempo = MIN_TEMPO;
 
-                currentTempo[p] =
-                    tempo;
+                currentTempo[p] = tempo;
 
                 UpdateTempoDisplay(p);
             }
@@ -2307,8 +2176,7 @@ LRESULT CALLBACK WindowProcedure(
                 if (tempo > MAX_TEMPO)
                     tempo = MAX_TEMPO;
 
-                currentTempo[p] =
-                    tempo;
+                currentTempo[p] = tempo;
 
                 UpdateTempoDisplay(p);
             }
@@ -2325,8 +2193,7 @@ LRESULT CALLBACK WindowProcedure(
                 if (pitch < MIN_PITCH)
                     pitch = MIN_PITCH;
 
-                currentPitch[p] =
-                    pitch;
+                currentPitch[p] = pitch;
 
                 UpdatePitchDisplay(p);
             }
@@ -2343,15 +2210,14 @@ LRESULT CALLBACK WindowProcedure(
                 if (pitch > MAX_PITCH)
                     pitch = MAX_PITCH;
 
-                currentPitch[p] =
-                    pitch;
+                currentPitch[p] = pitch;
 
                 UpdatePitchDisplay(p);
             }
 
-            // ------------------------------------------------
+            // =================================================
             // PLAYER 2
-            // ------------------------------------------------
+            // =================================================
 
             else if (button == ID_PLAY2)
             {
@@ -2359,28 +2225,22 @@ LRESULT CALLBACK WindowProcedure(
 
                 if (!playing[p])
                 {
-                    stopRequested[p] =
-                        false;
+                    stopRequested[p] = false;
+                    playing[p] = true;
 
-                    SetWindowTextA(
-                        playButton[p],
-                        "STOP"
-                    );
+                    UpdatePlayButtons();
 
                     std::thread(
                         PlaySong,
-                        p
+                        p,
+                        false
                     ).detach();
                 }
                 else
                 {
-                    stopRequested[p] =
-                        true;
+                    stopRequested[p] = true;
 
-                    SetWindowTextA(
-                        playButton[p],
-                        "PLAY"
-                    );
+                    UpdatePlayButtons();
                 }
             }
 
@@ -2411,8 +2271,7 @@ LRESULT CALLBACK WindowProcedure(
                 if (tempo < MIN_TEMPO)
                     tempo = MIN_TEMPO;
 
-                currentTempo[p] =
-                    tempo;
+                currentTempo[p] = tempo;
 
                 UpdateTempoDisplay(p);
             }
@@ -2429,8 +2288,7 @@ LRESULT CALLBACK WindowProcedure(
                 if (tempo > MAX_TEMPO)
                     tempo = MAX_TEMPO;
 
-                currentTempo[p] =
-                    tempo;
+                currentTempo[p] = tempo;
 
                 UpdateTempoDisplay(p);
             }
@@ -2447,8 +2305,7 @@ LRESULT CALLBACK WindowProcedure(
                 if (pitch < MIN_PITCH)
                     pitch = MIN_PITCH;
 
-                currentPitch[p] =
-                    pitch;
+                currentPitch[p] = pitch;
 
                 UpdatePitchDisplay(p);
             }
@@ -2465,15 +2322,14 @@ LRESULT CALLBACK WindowProcedure(
                 if (pitch > MAX_PITCH)
                     pitch = MAX_PITCH;
 
-                currentPitch[p] =
-                    pitch;
+                currentPitch[p] = pitch;
 
                 UpdatePitchDisplay(p);
             }
 
-            // ------------------------------------------------
+            // =================================================
             // PLAYER 3
-            // ------------------------------------------------
+            // =================================================
 
             else if (button == ID_PLAY3)
             {
@@ -2481,28 +2337,22 @@ LRESULT CALLBACK WindowProcedure(
 
                 if (!playing[p])
                 {
-                    stopRequested[p] =
-                        false;
+                    stopRequested[p] = false;
+                    playing[p] = true;
 
-                    SetWindowTextA(
-                        playButton[p],
-                        "STOP"
-                    );
+                    UpdatePlayButtons();
 
                     std::thread(
                         PlaySong,
-                        p
+                        p,
+                        false
                     ).detach();
                 }
                 else
                 {
-                    stopRequested[p] =
-                        true;
+                    stopRequested[p] = true;
 
-                    SetWindowTextA(
-                        playButton[p],
-                        "PLAY"
-                    );
+                    UpdatePlayButtons();
                 }
             }
 
@@ -2533,8 +2383,7 @@ LRESULT CALLBACK WindowProcedure(
                 if (tempo < MIN_TEMPO)
                     tempo = MIN_TEMPO;
 
-                currentTempo[p] =
-                    tempo;
+                currentTempo[p] = tempo;
 
                 UpdateTempoDisplay(p);
             }
@@ -2551,8 +2400,7 @@ LRESULT CALLBACK WindowProcedure(
                 if (tempo > MAX_TEMPO)
                     tempo = MAX_TEMPO;
 
-                currentTempo[p] =
-                    tempo;
+                currentTempo[p] = tempo;
 
                 UpdateTempoDisplay(p);
             }
@@ -2569,8 +2417,7 @@ LRESULT CALLBACK WindowProcedure(
                 if (pitch < MIN_PITCH)
                     pitch = MIN_PITCH;
 
-                currentPitch[p] =
-                    pitch;
+                currentPitch[p] = pitch;
 
                 UpdatePitchDisplay(p);
             }
@@ -2587,15 +2434,14 @@ LRESULT CALLBACK WindowProcedure(
                 if (pitch > MAX_PITCH)
                     pitch = MAX_PITCH;
 
-                currentPitch[p] =
-                    pitch;
+                currentPitch[p] = pitch;
 
                 UpdatePitchDisplay(p);
             }
 
-            // ------------------------------------------------
+            // =================================================
             // PLAYER 4
-            // ------------------------------------------------
+            // =================================================
 
             else if (button == ID_PLAY4)
             {
@@ -2603,28 +2449,22 @@ LRESULT CALLBACK WindowProcedure(
 
                 if (!playing[p])
                 {
-                    stopRequested[p] =
-                        false;
+                    stopRequested[p] = false;
+                    playing[p] = true;
 
-                    SetWindowTextA(
-                        playButton[p],
-                        "STOP"
-                    );
+                    UpdatePlayButtons();
 
                     std::thread(
                         PlaySong,
-                        p
+                        p,
+                        false
                     ).detach();
                 }
                 else
                 {
-                    stopRequested[p] =
-                        true;
+                    stopRequested[p] = true;
 
-                    SetWindowTextA(
-                        playButton[p],
-                        "PLAY"
-                    );
+                    UpdatePlayButtons();
                 }
             }
 
@@ -2655,8 +2495,7 @@ LRESULT CALLBACK WindowProcedure(
                 if (tempo < MIN_TEMPO)
                     tempo = MIN_TEMPO;
 
-                currentTempo[p] =
-                    tempo;
+                currentTempo[p] = tempo;
 
                 UpdateTempoDisplay(p);
             }
@@ -2673,8 +2512,7 @@ LRESULT CALLBACK WindowProcedure(
                 if (tempo > MAX_TEMPO)
                     tempo = MAX_TEMPO;
 
-                currentTempo[p] =
-                    tempo;
+                currentTempo[p] = tempo;
 
                 UpdateTempoDisplay(p);
             }
@@ -2691,8 +2529,7 @@ LRESULT CALLBACK WindowProcedure(
                 if (pitch < MIN_PITCH)
                     pitch = MIN_PITCH;
 
-                currentPitch[p] =
-                    pitch;
+                currentPitch[p] = pitch;
 
                 UpdatePitchDisplay(p);
             }
@@ -2709,8 +2546,7 @@ LRESULT CALLBACK WindowProcedure(
                 if (pitch > MAX_PITCH)
                     pitch = MAX_PITCH;
 
-                currentPitch[p] =
-                    pitch;
+                currentPitch[p] = pitch;
 
                 UpdatePitchDisplay(p);
             }
@@ -2723,41 +2559,55 @@ LRESULT CALLBACK WindowProcedure(
         // ====================================================
 
         case WM_USER + 1:
-        {
-            SetWindowTextA(
-                playButton[0],
-                "PLAY"
-            );
-
-            break;
-        }
-
         case WM_USER + 2:
-        {
-            SetWindowTextA(
-                playButton[1],
-                "PLAY"
-            );
-
-            break;
-        }
-
         case WM_USER + 3:
-        {
-            SetWindowTextA(
-                playButton[2],
-                "PLAY"
-            );
-
-            break;
-        }
-
         case WM_USER + 4:
         {
-            SetWindowTextA(
-                playButton[3],
-                "PLAY"
-            );
+            int playerIndex =
+                static_cast<int>(
+                    message -
+                    (WM_USER + 1)
+                );
+
+            if (
+                playerIndex >= 0 &&
+                playerIndex < PLAYER_COUNT)
+            {
+                playing[playerIndex] =
+                    false;
+
+                SetWindowTextA(
+                    playButton[playerIndex],
+                    "PLAY"
+                );
+            }
+
+            bool anyonePlaying = false;
+
+            for (
+                int i = 0;
+                i < PLAYER_COUNT;
+                ++i)
+            {
+                if (playing[i])
+                {
+                    anyonePlaying = true;
+                    break;
+                }
+            }
+
+            if (!anyonePlaying)
+            {
+                universalPlaying = false;
+
+                if (universalPlayButton)
+                {
+                    SetWindowTextA(
+                        universalPlayButton,
+                        "PLAY ALL"
+                    );
+                }
+            }
 
             break;
         }
@@ -2802,10 +2652,6 @@ LRESULT CALLBACK WindowProcedure(
                 &rect
             );
 
-            // ------------------------------------------------
-            // BACKGROUND
-            // ------------------------------------------------
-
             HBRUSH backgroundBrush =
                 CreateSolidBrush(
                     BACKGROUND
@@ -2821,10 +2667,6 @@ LRESULT CALLBACK WindowProcedure(
                 backgroundBrush
             );
 
-            // ------------------------------------------------
-            // COLUMNS
-            // ------------------------------------------------
-
             int columnWidth =
                 rect.right /
                 PLAYER_COUNT;
@@ -2837,7 +2679,7 @@ LRESULT CALLBACK WindowProcedure(
                 RECT columnRect =
                 {
                     i * columnWidth + 5,
-                    5,
+                    55,
                     (i + 1) *
                         columnWidth - 5,
                     rect.bottom - 5
@@ -2902,10 +2744,6 @@ LRESULT CALLBACK WindowProcedure(
                 );
             }
 
-            // ------------------------------------------------
-            // TITLES
-            // ------------------------------------------------
-
             SetTextColor(
                 dc,
                 TEXT
@@ -2956,10 +2794,10 @@ LRESULT CALLBACK WindowProcedure(
                 RECT titleRect =
                 {
                     i * columnWidth,
-                    20,
+                    60,
                     (i + 1) *
                         columnWidth,
-                    60
+                    100
                 };
 
                 DrawTextA(
@@ -2968,8 +2806,7 @@ LRESULT CALLBACK WindowProcedure(
                     -1,
                     &titleRect,
                     DT_CENTER |
-                    DT_SINGLELINE |
-                    DT_VCENTER
+                    DT_SINGLELINE
                 );
             }
 
@@ -3001,9 +2838,19 @@ LRESULT CALLBACK WindowProcedure(
                 i < PLAYER_COUNT;
                 ++i)
             {
-                stopRequested[i] =
-                    true;
+                stopRequested[i] = true;
             }
+
+            {
+                std::lock_guard<std::mutex> lock(
+                    universalMutex
+                );
+
+                universalCancelRequested = true;
+                universalStartRequested = false;
+            }
+
+            universalCondition.notify_all();
 
             PostQuitMessage(0);
 
@@ -3079,8 +2926,8 @@ int WINAPI WinMain(
             WS_OVERLAPPEDWINDOW,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
-            1000,
-            750,
+            1200,
+            800,
             nullptr,
             nullptr,
             instance,
@@ -3119,7 +2966,29 @@ int WINAPI WinMain(
     }
 
     // ========================================================
-    // CREATE CONTROLS
+    // UNIVERSAL PLAY BUTTON
+    // ========================================================
+
+    universalPlayButton =
+        CreateWindowA(
+            "BUTTON",
+            "PLAY ALL",
+            WS_VISIBLE |
+            WS_CHILD |
+            BS_PUSHBUTTON,
+            15,
+            5,
+            100,
+            45,
+            window,
+            (HMENU)(INT_PTR)
+                ID_UNIVERSAL_PLAY,
+            instance,
+            nullptr
+        );
+
+    // ========================================================
+    // PLAYER CONTROLS
     // ========================================================
 
     for (
@@ -3231,7 +3100,8 @@ int WINAPI WinMain(
                 100,
                 45,
                 window,
-                (HMENU)(INT_PTR)playID,
+                (HMENU)(INT_PTR)
+                    playID,
                 instance,
                 nullptr
             );
@@ -3250,9 +3120,10 @@ int WINAPI WinMain(
                 0,
                 125,
                 100,
-                38,
+                35,
                 window,
-                (HMENU)(INT_PTR)loopID,
+                (HMENU)(INT_PTR)
+                    loopID,
                 instance,
                 nullptr
             );
@@ -3271,9 +3142,10 @@ int WINAPI WinMain(
                 0,
                 170,
                 40,
-                38,
+                35,
                 window,
-                (HMENU)(INT_PTR)tempoMinusID,
+                (HMENU)(INT_PTR)
+                    tempoMinusID,
                 instance,
                 nullptr
             );
@@ -3293,7 +3165,7 @@ int WINAPI WinMain(
                 0,
                 170,
                 100,
-                38,
+                35,
                 window,
                 nullptr,
                 instance,
@@ -3312,11 +3184,12 @@ int WINAPI WinMain(
                 WS_CHILD |
                 BS_PUSHBUTTON,
                 0,
-                213,
+                210,
                 100,
-                38,
+                35,
                 window,
-                (HMENU)(INT_PTR)tempoPlusID,
+                (HMENU)(INT_PTR)
+                    tempoPlusID,
                 instance,
                 nullptr
             );
@@ -3333,11 +3206,12 @@ int WINAPI WinMain(
                 WS_CHILD |
                 BS_PUSHBUTTON,
                 0,
-                258,
+                250,
                 40,
-                38,
+                35,
                 window,
-                (HMENU)(INT_PTR)pitchMinusID,
+                (HMENU)(INT_PTR)
+                    pitchMinusID,
                 instance,
                 nullptr
             );
@@ -3355,9 +3229,9 @@ int WINAPI WinMain(
                 SS_CENTER |
                 SS_CENTERIMAGE,
                 0,
-                258,
+                250,
                 100,
-                38,
+                35,
                 window,
                 nullptr,
                 instance,
@@ -3376,11 +3250,12 @@ int WINAPI WinMain(
                 WS_CHILD |
                 BS_PUSHBUTTON,
                 0,
-                301,
+                290,
                 100,
-                38,
+                35,
                 window,
-                (HMENU)(INT_PTR)pitchPlusID,
+                (HMENU)(INT_PTR)
+                    pitchPlusID,
                 instance,
                 nullptr
             );
@@ -3388,44 +3263,65 @@ int WINAPI WinMain(
         // ====================================================
         // SONG TEXT EDITOR
         //
-        // Important:
+        // ES_MULTILINE makes the song appear vertically,
+        // one command per line.
         //
-        // ES_MULTILINE
-        // ES_AUTOVSCROLL
-        // WS_VSCROLL
+        // WS_VSCROLL gives you a vertical scrollbar.
         //
-        // There is deliberately NO ES_AUTOHSCROLL and NO
-        // WS_HSCROLL, so the text wraps inside the column.
+        // ES_AUTOVSCROLL keeps scrolling downward as
+        // additional lines are entered.
         // ====================================================
+
+        const char* defaultSong =
+            "TEMPO 120\r\n"
+            "LENGTH 4\r\n"
+            "\r\n"
+            "PIANO C4 0 1\r\n"
+            "PIANO E4 1 1\r\n"
+            "PIANO G4 2 1\r\n"
+            "PIANO C5 3 1\r\n"
+            "\r\n"
+            "DRUM KICK 0\r\n"
+            "DRUM HIHAT 0\r\n"
+            "DRUM HIHAT 0.5\r\n"
+            "DRUM KICK 1\r\n"
+            "DRUM HIHAT 1\r\n"
+            "DRUM HIHAT 1.5\r\n"
+            "DRUM KICK 2\r\n"
+            "DRUM HIHAT 2\r\n"
+            "DRUM HIHAT 2.5\r\n"
+            "DRUM KICK 3\r\n"
+            "DRUM HIHAT 3\r\n"
+            "DRUM HIHAT 3.5\r\n";
 
         songEditor[i] =
             CreateWindowExA(
                 WS_EX_CLIENTEDGE,
                 "EDIT",
-                DEFAULT_SONG,
+                defaultSong,
                 WS_VISIBLE |
                 WS_CHILD |
+                WS_VSCROLL |
                 ES_MULTILINE |
                 ES_AUTOVSCROLL |
-                WS_VSCROLL |
                 ES_WANTRETURN,
                 0,
-                350,
+                335,
                 100,
-                300,
+                200,
                 window,
                 nullptr,
                 instance,
                 nullptr
             );
 
-        // ----------------------------------------------------
-        // Editor font
-        // ----------------------------------------------------
+        // ====================================================
+        // EDITOR FONT
+        // ====================================================
 
         HFONT editorFont =
             CreateFontA(
-                15,
+                16,
                 0,
                 0,
                 0,
@@ -3436,17 +3332,28 @@ int WINAPI WinMain(
                 DEFAULT_CHARSET,
                 OUT_DEFAULT_PRECIS,
                 CLIP_DEFAULT_PRECIS,
-                CLEARTYPE_QUALITY,
-                FIXED_PITCH |
-                FF_MODERN,
+                DEFAULT_QUALITY,
+                FIXED_PITCH,
                 "Consolas"
             );
 
-        SendMessageA(
+        SendMessage(
             songEditor[i],
             WM_SETFONT,
             (WPARAM)editorFont,
             TRUE
+        );
+
+        // ====================================================
+        // SET SOME MARGINS
+        // ====================================================
+
+        SendMessage(
+            songEditor[i],
+            EM_SETMARGINS,
+            EC_LEFTMARGIN |
+            EC_RIGHTMARGIN,
+            MAKELONG(8, 8)
         );
     }
 
