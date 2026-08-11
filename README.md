@@ -2,3 +2,10 @@ command prompt
 g++ "main.cpp" -o "C++Audio.exe" -lwinmm -lgdi32. 
 .\C++Audio.exe
 Enter
+
+
+
+TEMPO, LENGTH
+Notes	NOTE
+Instruments	PIANO, BASS, GUITAR, SYNTH, ORGAN, FLUTE, TRUMPET, BELL
+Drums	KICK, BASS_DRUM, SNARE, HIHAT, CLOSED_HIHAT, OPEN_HIHAT, OPENHIHAT, CLAP, LOW_TOM, MID_TOM, HIGH_TOM, CRASH, RIDE, RIMSHOT, COWBELL, SHAKER, TAMBOURINE
