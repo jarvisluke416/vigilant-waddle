@@ -1509,4 +1509,96 @@ So your three tom commands are:
 
 DRUM LOW_TOM  <beat>
 DRUM MID_TOM  <beat>
-DRUM HIGH_TOM <beat> CRASH, RIDE, RIMSHOT, COWBELL, SHAKER, TAMBOURINE
+DRUM HIGH_TOM <beat> CRASH Absolutely — CRASH is supported in your code.
+
+Use:
+
+DRUM CRASH <beat>
+
+The crash has a longer decay than most of your other drums, so it's especially useful at the beginning of a section, at the end of a fill, or when starting a new loop.
+
+Basic CRASH
+DRUM CRASH 0
+DRUM CRASH 1
+DRUM CRASH 2
+DRUM CRASH 3
+Every half-beat
+DRUM CRASH 0
+DRUM CRASH 0.5
+DRUM CRASH 1
+DRUM CRASH 1.5
+DRUM CRASH 2
+DRUM CRASH 2.5
+DRUM CRASH 3
+DRUM CRASH 3.5
+Every quarter-beat
+DRUM CRASH 0
+DRUM CRASH 0.25
+DRUM CRASH 0.5
+DRUM CRASH 0.75
+DRUM CRASH 1
+DRUM CRASH 1.25
+DRUM CRASH 1.5
+DRUM CRASH 1.75
+DRUM CRASH 2
+DRUM CRASH 2.25
+DRUM CRASH 2.5
+DRUM CRASH 2.75
+DRUM CRASH 3
+DRUM CRASH 3.25
+DRUM CRASH 3.5
+DRUM CRASH 3.75
+Best use — beginning of a song
+TEMPO 120
+LENGTH 4
+
+DRUM CRASH 0
+DRUM KICK 0
+DRUM HIHAT 0
+DRUM HIHAT 0.5
+
+DRUM SNARE 1
+DRUM HIHAT 1
+DRUM HIHAT 1.5
+
+DRUM KICK 2
+DRUM HIHAT 2
+DRUM HIHAT 2.5
+
+DRUM SNARE 3
+DRUM HIHAT 3
+DRUM HIHAT 3.5
+Crash at the end of the loop
+DRUM KICK 0
+DRUM SNARE 1
+DRUM KICK 2
+DRUM SNARE 3
+DRUM CRASH 3
+Crash with a tom fill
+DRUM KICK 0
+DRUM SNARE 1
+DRUM KICK 2
+DRUM HIGH_TOM 2.5
+DRUM MID_TOM 2.75
+DRUM LOW_TOM 3
+DRUM HIGH_TOM 3.25
+DRUM MID_TOM 3.5
+DRUM LOW_TOM 3.75
+DRUM CRASH 3.75
+Big ending
+DRUM KICK 3
+DRUM HIGH_TOM 3.25
+DRUM MID_TOM 3.5
+DRUM LOW_TOM 3.75
+DRUM CRASH 3.75
+Crash + kick
+DRUM CRASH 0
+DRUM KICK 0
+
+You can also put multiple crashes close together:
+
+DRUM CRASH 0
+DRUM CRASH 2
+DRUM CRASH 3.75
+
+One important thing with your current code: CRASH lasts up to 2 seconds, so if you place several crashes close together, they will overlap and create a much bigger/noisier sound. That's normal for the way your synthesizer is currently written. RIDE, RIMSHOT, COWBELL, SHAKER, TAMBOURINE
