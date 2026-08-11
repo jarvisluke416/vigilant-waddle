@@ -653,5 +653,109 @@ TRUMPET A4 2 0.5
 TRUMPET A4 2.5 0.5
 TRUMPET G4 3 1
 
-Your TRUMPET waveform uses several harmonics, giving it a brighter, brassier sound than the FLUTE. BELL
+Your TRUMPET waveform uses several harmonics, giving it a brighter, brassier sound than the FLUTE. BELL BELL NOTE START_BEAT DURATION_BEATS
+
+C2–B2
+BELL C2 0 1
+BELL C#2 1 1
+BELL D2 2 1
+BELL D#2 3 1
+BELL E2 4 1
+BELL F2 5 1
+BELL F#2 6 1
+BELL G2 7 1
+BELL G#2 8 1
+BELL A2 9 1
+BELL A#2 10 1
+BELL B2 11 1
+C3–B3
+BELL C3 0 1
+BELL C#3 1 1
+BELL D3 2 1
+BELL D#3 3 1
+BELL E3 4 1
+BELL F3 5 1
+BELL F#3 6 1
+BELL G3 7 1
+BELL G#3 8 1
+BELL A3 9 1
+BELL A#3 10 1
+BELL B3 11 1
+C4–B4
+BELL C4 0 1
+BELL C#4 1 1
+BELL D4 2 1
+BELL D#4 3 1
+BELL E4 4 1
+BELL F4 5 1
+BELL F#4 6 1
+BELL G4 7 1
+BELL G#4 8 1
+BELL A4 9 1
+BELL A#4 10 1
+BELL B4 11 1
+C5–B5
+BELL C5 0 1
+BELL C#5 1 1
+BELL D5 2 1
+BELL D#5 3 1
+BELL E5 4 1
+BELL F5 5 1
+BELL F#5 6 1
+BELL G5 7 1
+BELL G#5 8 1
+BELL A5 9 1
+BELL A#5 10 1
+BELL B5 11 1
+C6–B6
+BELL C6 0 1
+BELL C#6 1 1
+BELL D6 2 1
+BELL D#6 3 1
+BELL E6 4 1
+BELL F6 5 1
+BELL F#6 6 1
+BELL G6 7 1
+BELL G#6 8 1
+BELL A6 9 1
+BELL A#6 10 1
+BELL B6 11 1
+🔔 Example bell melody
+
+Bells can sound especially nice with shorter notes:
+
+TEMPO 100
+LENGTH 8
+
+BELL C5 0 0.5
+BELL E5 0.5 0.5
+BELL G5 1 0.5
+BELL C6 1.5 1
+
+BELL G5 2.5 0.5
+BELL E5 3 0.5
+BELL C5 3.5 1
+
+BELL D5 4.5 0.5
+BELL F5 5 0.5
+BELL A5 5.5 0.5
+BELL D6 6 1
+
+BELL C6 7 1
+🔔 Bell chords
+
+You can also play several bells at the same time:
+
+TEMPO 100
+LENGTH 4
+
+BELL C5 0 2
+BELL E5 0 2
+BELL G5 0 2
+
+BELL C6 2 2
+BELL E6 2 2
+BELL G6 2 2
+
+Your BELL waveform is different from the other instruments because it uses additional non-integer harmonics (2.71 and 4.13), giving it a more metallic/bell-like character.
 Drums	KICK, BASS_DRUM, SNARE, HIHAT, CLOSED_HIHAT, OPEN_HIHAT, OPENHIHAT, CLAP, LOW_TOM, MID_TOM, HIGH_TOM, CRASH, RIDE, RIMSHOT, COWBELL, SHAKER, TAMBOURINE
