@@ -1,10 +1,11 @@
 #include <windows.h>
 #include <mmsystem.h>
+
 #include <algorithm>
 #include <atomic>
 #include <cmath>
-#include <fstream>
 #include <random>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -37,10 +38,14 @@ const int AUDIO_BUFFER_COUNT = 2;
 const COLORREF BACKGROUND = RGB(0, 207, 74);
 const COLORREF COLUMN = RGB(32, 32, 38);
 const COLORREF COLUMN_BORDER = RGB(55, 55, 65);
-const COLORREF TEXT = RGB(2, 0, 0);
 
-// BUTTON TEXT COLOR
+// GREEN TEXT
+const COLORREF TEXT = RGB(0, 255, 0);
 const COLORREF BUTTON_TEXT = RGB(0, 255, 0);
+
+// Text input colors
+const COLORREF INPUT_TEXT = RGB(0, 255, 0);
+const COLORREF INPUT_BACKGROUND = RGB(15, 15, 20);
 
 // ============================================================
 // GLOBAL STATE
@@ -64,7 +69,37 @@ HWND pitchMinusButton[PLAYER_COUNT] = {};
 HWND pitchPlusButton[PLAYER_COUNT] = {};
 HWND pitchLabel[PLAYER_COUNT] = {};
 
+// NEW:
+// Each player now has its own editable song text box.
+HWND songTextBox[PLAYER_COUNT] = {};
+
 HWND mainWindow = nullptr;
+
+// ============================================================
+// DEFAULT SONG TEXT
+// ============================================================
+
+const char* DEFAULT_SONG =
+    "TEMPO 120\n"
+    "LENGTH 4\n"
+    "\n"
+    "NOTE C4 0 1\n"
+    "NOTE E4 1 1\n"
+    "NOTE G4 2 1\n"
+    "NOTE C5 3 1\n"
+    "\n"
+    "DRUM KICK 0\n"
+    "DRUM HIHAT 0\n"
+    "DRUM HIHAT 0.5\n"
+    "DRUM KICK 1\n"
+    "DRUM HIHAT 1\n"
+    "DRUM HIHAT 1.5\n"
+    "DRUM KICK 2\n"
+    "DRUM HIHAT 2\n"
+    "DRUM HIHAT 2.5\n"
+    "DRUM KICK 3\n"
+    "DRUM HIHAT 3\n"
+    "DRUM HIHAT 3.5\n";
 
 // ============================================================
 // RANDOM
@@ -164,7 +199,8 @@ double kick(double t)
             frequency *
             t
         )
-        * envelope;
+        *
+        envelope;
 }
 
 double snare(double t)
@@ -499,20 +535,23 @@ double makeDrum(
 }
 
 // ============================================================
-// LOAD SONG
+// LOAD SONG FROM TEXT BOX
+//
+// THIS REPLACES THE OLD .TXT FILE SYSTEM.
+//
+// The function receives the exact text that the user typed
+// into the interface and parses it the same way the old
+// LoadSong() function parsed the text file.
 // ============================================================
 
-bool LoadSong(
-    const char* filename,
+bool LoadSongFromText(
+    const std::string& songText,
     std::vector<NoteEvent>& notes,
     std::vector<DrumEvent>& drums,
     double& tempo,
     double& loopLengthBeats)
 {
-    std::ifstream songFile(filename);
-
-    if (!songFile)
-        return false;
+    std::istringstream songFile(songText);
 
     tempo = 120.0;
     loopLengthBeats = 4.0;
@@ -600,7 +639,7 @@ bool LoadSong(
 // ============================================================
 
 bool GenerateAudio(
-    const char* filename,
+    const std::string& songText,
     double tempoOverride,
     int pitchSemitones,
     std::vector<short>& samples)
@@ -611,8 +650,8 @@ bool GenerateAudio(
     double fileTempo;
     double loopLengthBeats;
 
-    if (!LoadSong(
-        filename,
+    if (!LoadSongFromText(
+        songText,
         notes,
         drums,
         fileTempo,
@@ -957,6 +996,45 @@ void UpdatePitchDisplay(
 }
 
 // ============================================================
+// GET TEXT FROM A PLAYER'S TEXT BOX
+// ============================================================
+
+std::string GetSongText(
+    int playerIndex)
+{
+    if (
+        playerIndex < 0 ||
+        playerIndex >= PLAYER_COUNT)
+        return "";
+
+    if (!songTextBox[playerIndex])
+        return "";
+
+    int length =
+        GetWindowTextLengthA(
+            songTextBox[playerIndex]
+        );
+
+    if (length <= 0)
+        return "";
+
+    std::string text(
+        length + 1,
+        '\0'
+    );
+
+    GetWindowTextA(
+        songTextBox[playerIndex],
+        &text[0],
+        length + 1
+    );
+
+    text.resize(length);
+
+    return text;
+}
+
+// ============================================================
 // RESIZE PLAYER CONTROLS
 // ============================================================
 
@@ -972,6 +1050,9 @@ void ResizePlayerButtons(
 
     int windowWidth =
         rect.right;
+
+    int windowHeight =
+        rect.bottom;
 
     int columnWidth =
         windowWidth /
@@ -1029,7 +1110,7 @@ void ResizePlayerButtons(
             180,
             buttonWidth -
                 smallWidth -
-                10,
+                5,
             40,
             TRUE
         );
@@ -1058,7 +1139,7 @@ void ResizePlayerButtons(
             275,
             buttonWidth -
                 smallWidth -
-                10,
+                5,
             40,
             TRUE
         );
@@ -1071,6 +1152,29 @@ void ResizePlayerButtons(
             40,
             TRUE
         );
+
+        // ====================================================
+        // SONG TEXT INPUT
+        // ====================================================
+
+        int textTop = 370;
+        int textBottom = windowHeight - 15;
+
+        int textHeight =
+            textBottom -
+            textTop;
+
+        if (textHeight < 80)
+            textHeight = 80;
+
+        MoveWindow(
+            songTextBox[i],
+            x,
+            textTop,
+            buttonWidth,
+            textHeight,
+            TRUE
+        );
     }
 }
 
@@ -1079,7 +1183,8 @@ void ResizePlayerButtons(
 // ============================================================
 
 void PlaySong(
-    int playerIndex)
+    int playerIndex,
+    std::string songText)
 {
     if (
         playerIndex < 0 ||
@@ -1092,16 +1197,34 @@ void PlaySong(
     playing[playerIndex] = true;
     stopRequested[playerIndex] = false;
 
-    const char* filenames[PLAYER_COUNT] =
-    {
-        "song1.txt",
-        "song2.txt",
-        "song3.txt",
-        "song4.txt"
-    };
+    // --------------------------------------------------------
+    // Make sure the text box isn't empty.
+    // --------------------------------------------------------
 
-    const char* filename =
-        filenames[playerIndex];
+    if (songText.empty())
+    {
+        MessageBoxA(
+            mainWindow,
+            "The song text box is empty.",
+            "Song Error",
+            MB_OK | MB_ICONERROR
+        );
+
+        playing[playerIndex] = false;
+
+        PostMessage(
+            mainWindow,
+            WM_USER + playerIndex + 1,
+            0,
+            0
+        );
+
+        return;
+    }
+
+    // --------------------------------------------------------
+    // Read the song text.
+    // --------------------------------------------------------
 
     std::vector<NoteEvent> tempNotes;
     std::vector<DrumEvent> tempDrums;
@@ -1109,8 +1232,8 @@ void PlaySong(
     double fileTempo = 120.0;
     double loopLengthBeats = 4.0;
 
-    if (!LoadSong(
-        filename,
+    if (!LoadSongFromText(
+        songText,
         tempNotes,
         tempDrums,
         fileTempo,
@@ -1118,7 +1241,7 @@ void PlaySong(
     {
         MessageBoxA(
             mainWindow,
-            "Could not open or read the song file.",
+            "Could not read the song text.",
             "Song Error",
             MB_OK | MB_ICONERROR
         );
@@ -1150,6 +1273,10 @@ void PlaySong(
     UpdatePitchDisplay(
         playerIndex
     );
+
+    // ========================================================
+    // OPEN AUDIO DEVICE
+    // ========================================================
 
     WAVEFORMATEX format = {};
 
@@ -1210,6 +1337,10 @@ void PlaySong(
         return;
     }
 
+    // ========================================================
+    // AUDIO BUFFERS
+    // ========================================================
+
     std::vector<short> audioSamples[
         AUDIO_BUFFER_COUNT
     ];
@@ -1236,12 +1367,16 @@ void PlaySong(
             currentPitch[playerIndex].load();
 
         return GenerateAudio(
-            filename,
+            songText,
             tempo,
             pitch,
             audioSamples[bufferIndex]
         );
     };
+
+    // ========================================================
+    // GENERATE FIRST TWO BUFFERS
+    // ========================================================
 
     if (!generateBuffer(0))
     {
@@ -1274,6 +1409,10 @@ void PlaySong(
 
         return;
     }
+
+    // ========================================================
+    // QUEUE INITIAL BUFFERS
+    // ========================================================
 
     for (
         int i = 0;
@@ -1320,7 +1459,9 @@ void PlaySong(
                 }
             }
 
-            waveOutClose(audioDevice);
+            waveOutClose(
+                audioDevice
+            );
 
             playing[playerIndex] = false;
 
@@ -1385,6 +1526,10 @@ void PlaySong(
         queued[i] = true;
     }
 
+    // ========================================================
+    // PLAYBACK LOOP
+    // ========================================================
+
     while (
         !stopRequested[playerIndex])
     {
@@ -1420,8 +1565,19 @@ void PlaySong(
             if (stopRequested[playerIndex])
                 continue;
 
+            // ------------------------------------------------
+            // If LOOP is OFF, don't create another buffer.
+            // ------------------------------------------------
+
             if (!looping[playerIndex])
                 continue;
+
+            // ------------------------------------------------
+            // LOOP is ON.
+            //
+            // Generate the same song text again using the
+            // current tempo and pitch settings.
+            // ------------------------------------------------
 
             if (!generateBuffer(i))
             {
@@ -1486,6 +1642,11 @@ void PlaySong(
             queued[i] = true;
         }
 
+        // ----------------------------------------------------
+        // If looping is OFF, wait until both queued buffers
+        // have finished.
+        // ----------------------------------------------------
+
         if (!looping[playerIndex])
         {
             bool anythingQueued =
@@ -1512,6 +1673,10 @@ void PlaySong(
             Sleep(1);
         }
     }
+
+    // ========================================================
+    // STOP AUDIO
+    // ========================================================
 
     waveOutReset(
         audioDevice
@@ -1563,7 +1728,7 @@ LRESULT CALLBACK WindowProcedure(
     switch (message)
     {
         // ====================================================
-        // BUTTON TEXT COLOR
+        // BUTTON / EDIT TEXT COLORS
         // ====================================================
 
         case WM_CTLCOLORBTN:
@@ -1586,6 +1751,53 @@ LRESULT CALLBACK WindowProcedure(
             );
         }
 
+        case WM_CTLCOLOREDIT:
+        {
+            HDC dc =
+                (HDC)wParam;
+
+            SetTextColor(
+                dc,
+                INPUT_TEXT
+            );
+
+            SetBkColor(
+                dc,
+                INPUT_BACKGROUND
+            );
+
+            static HBRUSH inputBrush =
+                CreateSolidBrush(
+                    INPUT_BACKGROUND
+                );
+
+            return (LRESULT)inputBrush;
+        }
+
+        // ====================================================
+        // STATIC TEXT
+        // ====================================================
+
+        case WM_CTLCOLORSTATIC:
+        {
+            HDC dc =
+                (HDC)wParam;
+
+            SetTextColor(
+                dc,
+                TEXT
+            );
+
+            SetBkMode(
+                dc,
+                TRANSPARENT
+            );
+
+            return (LRESULT)GetStockObject(
+                NULL_BRUSH
+            );
+        }
+
         // ====================================================
         // BUTTONS
         // ====================================================
@@ -1595,13 +1807,19 @@ LRESULT CALLBACK WindowProcedure(
             int button =
                 LOWORD(wParam);
 
+            // =================================================
             // PLAYER 1
+            // =================================================
+
             if (button == ID_PLAY1)
             {
                 int p = 0;
 
                 if (!playing[p])
                 {
+                    std::string songText =
+                        GetSongText(p);
+
                     stopRequested[p] = false;
 
                     SetWindowTextA(
@@ -1611,7 +1829,8 @@ LRESULT CALLBACK WindowProcedure(
 
                     std::thread(
                         PlaySong,
-                        p
+                        p,
+                        songText
                     ).detach();
                 }
                 else
@@ -1708,13 +1927,19 @@ LRESULT CALLBACK WindowProcedure(
                 UpdatePitchDisplay(p);
             }
 
+            // =================================================
             // PLAYER 2
+            // =================================================
+
             else if (button == ID_PLAY2)
             {
                 int p = 1;
 
                 if (!playing[p])
                 {
+                    std::string songText =
+                        GetSongText(p);
+
                     stopRequested[p] = false;
 
                     SetWindowTextA(
@@ -1724,7 +1949,8 @@ LRESULT CALLBACK WindowProcedure(
 
                     std::thread(
                         PlaySong,
-                        p
+                        p,
+                        songText
                     ).detach();
                 }
                 else
@@ -1821,13 +2047,19 @@ LRESULT CALLBACK WindowProcedure(
                 UpdatePitchDisplay(p);
             }
 
+            // =================================================
             // PLAYER 3
+            // =================================================
+
             else if (button == ID_PLAY3)
             {
                 int p = 2;
 
                 if (!playing[p])
                 {
+                    std::string songText =
+                        GetSongText(p);
+
                     stopRequested[p] = false;
 
                     SetWindowTextA(
@@ -1837,7 +2069,8 @@ LRESULT CALLBACK WindowProcedure(
 
                     std::thread(
                         PlaySong,
-                        p
+                        p,
+                        songText
                     ).detach();
                 }
                 else
@@ -1934,13 +2167,19 @@ LRESULT CALLBACK WindowProcedure(
                 UpdatePitchDisplay(p);
             }
 
+            // =================================================
             // PLAYER 4
+            // =================================================
+
             else if (button == ID_PLAY4)
             {
                 int p = 3;
 
                 if (!playing[p])
                 {
+                    std::string songText =
+                        GetSongText(p);
+
                     stopRequested[p] = false;
 
                     SetWindowTextA(
@@ -1950,7 +2189,8 @@ LRESULT CALLBACK WindowProcedure(
 
                     std::thread(
                         PlaySong,
-                        p
+                        p,
+                        songText
                     ).detach();
                 }
                 else
@@ -2049,7 +2289,8 @@ LRESULT CALLBACK WindowProcedure(
 
             break;
         }
-                // ====================================================
+
+        // ====================================================
         // PLAYBACK FINISHED
         // ====================================================
 
@@ -2408,8 +2649,8 @@ int WINAPI WinMain(
             WS_OVERLAPPEDWINDOW,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
-            900,
-            650,
+            1100,
+            750,
             nullptr,
             nullptr,
             instance,
@@ -2669,6 +2910,62 @@ int WINAPI WinMain(
                 instance,
                 nullptr
             );
+
+        // ----------------------------------------------------
+        // SONG TEXT INPUT
+        // ----------------------------------------------------
+
+        songTextBox[i] =
+            CreateWindowExA(
+                WS_EX_CLIENTEDGE,
+                "EDIT",
+                DEFAULT_SONG,
+                WS_VISIBLE |
+                WS_CHILD |
+                WS_VSCROLL |
+                WS_HSCROLL |
+                ES_MULTILINE |
+                ES_AUTOVSCROLL |
+                ES_AUTOHSCROLL |
+                ES_WANTRETURN,
+                0,
+                370,
+                100,
+                200,
+                window,
+                nullptr,
+                instance,
+                nullptr
+            );
+
+        // ----------------------------------------------------
+        // SET FONT FOR TEXT INPUT
+        // ----------------------------------------------------
+
+        HFONT editFont =
+            CreateFontA(
+                16,
+                0,
+                0,
+                0,
+                FW_NORMAL,
+                FALSE,
+                FALSE,
+                FALSE,
+                DEFAULT_CHARSET,
+                OUT_DEFAULT_PRECIS,
+                CLIP_DEFAULT_PRECIS,
+                DEFAULT_QUALITY,
+                DEFAULT_PITCH,
+                "Consolas"
+            );
+
+        SendMessage(
+            songTextBox[i],
+            WM_SETFONT,
+            (WPARAM)editFont,
+            TRUE
+        );
     }
 
     // ========================================================
