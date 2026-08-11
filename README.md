@@ -1737,4 +1737,50 @@ DRUM KICK 2
 DRUM SNARE 1
 DRUM SNARE 3
 
-Because your synthesized ride has a fairly long decay, using it on every 0.25 beat will cause lots of overlapping metallic sounds. For a more natural ride, I'd recommend starting with every 0.5 beat or every 1 beat. RIMSHOT, COWBELL, SHAKER, TAMBOURINE
+Because your synthesized ride has a fairly long decay, using it on every 0.25 beat will cause lots of overlapping metallic sounds. For a more natural ride, I'd recommend starting with every 0.5 beat or every 1 beat. RIMSHOT For RIMSHOT, the format is:
+
+DRUM RIMSHOT <beat>
+
+Here are examples covering a full 16-beat pattern:
+
+DRUM RIMSHOT 0
+DRUM RIMSHOT 1
+DRUM RIMSHOT 2
+DRUM RIMSHOT 3
+DRUM RIMSHOT 4
+DRUM RIMSHOT 5
+DRUM RIMSHOT 6
+DRUM RIMSHOT 7
+DRUM RIMSHOT 8
+DRUM RIMSHOT 9
+DRUM RIMSHOT 10
+DRUM RIMSHOT 11
+DRUM RIMSHOT 12
+DRUM RIMSHOT 13
+DRUM RIMSHOT 14
+DRUM RIMSHOT 15
+
+You can also place rimshots between beats using decimal values:
+
+DRUM RIMSHOT 0.5
+DRUM RIMSHOT 1.5
+DRUM RIMSHOT 2.5
+DRUM RIMSHOT 3.5
+DRUM RIMSHOT 4.5
+DRUM RIMSHOT 5.5
+DRUM RIMSHOT 6.5
+DRUM RIMSHOT 7.5
+Example rimshot pattern
+TEMPO 120
+LENGTH 8
+
+DRUM RIMSHOT 0
+DRUM RIMSHOT 1.5
+DRUM RIMSHOT 2
+DRUM RIMSHOT 3.5
+DRUM RIMSHOT 4
+DRUM RIMSHOT 5.5
+DRUM RIMSHOT 6
+DRUM RIMSHOT 7.5
+
+Important: RIMSHOT is a drum command, so it does not use a note name such as C4 or a duration. The number is the beat position. COWBELL, SHAKER, TAMBOURINE
