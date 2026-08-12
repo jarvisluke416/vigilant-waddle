@@ -218,28 +218,116 @@ double instrumentWave(
         frequency *
         t;
 
+    // --------------------------------------------------------
+    // PIANO
+    // --------------------------------------------------------
+
     if (instrument == "PIANO")
     {
+        double attack =
+            1.0 - std::exp(-180.0 * t);
+
+        double decay =
+            std::exp(-1.8 * t);
+
         return
-            std::sin(phase) +
-            std::sin(phase * 2.0) * 0.35 +
-            std::sin(phase * 3.0) * 0.15;
+            (
+                std::sin(phase) +
+                std::sin(phase * 2.0) * 0.35 +
+                std::sin(phase * 3.0) * 0.15
+            )
+            *
+            attack
+            *
+            decay;
     }
+
+    // --------------------------------------------------------
+    // BASS
+    //
+    // Strong fundamental plus harmonics so the bass remains
+    // audible on smaller speakers.
+    // --------------------------------------------------------
 
     if (instrument == "BASS")
     {
+        double attack =
+            1.0 - std::exp(-120.0 * t);
+
+        double fundamental =
+            std::sin(phase);
+
+        double second =
+            std::sin(phase * 2.0);
+
+        double third =
+            std::sin(phase * 3.0);
+
+        double fourth =
+            std::sin(phase * 4.0);
+
         return
-            std::sin(phase) * 0.8 +
-            std::sin(phase * 2.0) * 0.2;
+            (
+                fundamental * 1.00 +
+                second * 0.38 +
+                third * 0.12 +
+                fourth * 0.04
+            )
+            *
+            attack
+            *
+            std::exp(-0.75 * t);
     }
+
+    // --------------------------------------------------------
+    // GUITAR
+    //
+    // Guitar is now distinctly plucked:
+    // - fast attack
+    // - strong 2nd/3rd harmonics
+    // - rapid decay
+    // --------------------------------------------------------
 
     if (instrument == "GUITAR")
     {
+        double attack =
+            1.0 - std::exp(-350.0 * t);
+
+        double decay =
+            std::exp(-4.2 * t);
+
+        double harmonic1 =
+            std::sin(phase);
+
+        double harmonic2 =
+            std::sin(phase * 2.0);
+
+        double harmonic3 =
+            std::sin(phase * 3.0);
+
+        double harmonic4 =
+            std::sin(phase * 4.0);
+
+        double harmonic5 =
+            std::sin(phase * 5.0);
+
         return
-            std::sin(phase) * 0.65 +
-            std::sin(phase * 2.0) * 0.25 +
-            std::sin(phase * 3.0) * 0.10;
+            (
+                harmonic1 * 0.75 +
+                harmonic2 * 0.32 +
+                harmonic3 * 0.22 +
+                harmonic4 * 0.12 +
+                harmonic5 * 0.06
+            )
+            *
+            attack
+            *
+            decay;
     }
+
+    // --------------------------------------------------------
+    // SYNTH
+    // --------------------------------------------------------
 
     if (instrument == "SYNTH")
     {
@@ -255,6 +343,10 @@ double instrumentWave(
         return saw;
     }
 
+    // --------------------------------------------------------
+    // ORGAN
+    // --------------------------------------------------------
+
     if (instrument == "ORGAN")
     {
         return
@@ -263,30 +355,132 @@ double instrumentWave(
             std::sin(phase * 4.0) * 0.10;
     }
 
+    // --------------------------------------------------------
+    // FLUTE
+    // --------------------------------------------------------
+
     if (instrument == "FLUTE")
     {
+        double breath =
+            noise() * 0.025;
+
         return
             std::sin(phase) * 0.85 +
-            std::sin(phase * 2.0) * 0.10;
+            std::sin(phase * 2.0) * 0.10 +
+            breath;
     }
+
+    // --------------------------------------------------------
+    // TRUMPET
+    //
+    // Trumpet is now considerably brighter than guitar.
+    // Strong 2nd, 3rd, 4th and 5th harmonics plus a brass-like
+    // attack envelope.
+    // --------------------------------------------------------
 
     if (instrument == "TRUMPET")
     {
+        double attack =
+            1.0 - std::exp(-45.0 * t);
+
+        double sustain =
+            0.82 +
+            0.18 *
+            std::exp(-2.0 * t);
+
+        double harmonic1 =
+            std::sin(phase);
+
+        double harmonic2 =
+            std::sin(phase * 2.0);
+
+        double harmonic3 =
+            std::sin(phase * 3.0);
+
+        double harmonic4 =
+            std::sin(phase * 4.0);
+
+        double harmonic5 =
+            std::sin(phase * 5.0);
+
+        double harmonic6 =
+            std::sin(phase * 6.0);
+
+        double brass =
+            harmonic1 * 0.55 +
+            harmonic2 * 0.34 +
+            harmonic3 * 0.28 +
+            harmonic4 * 0.20 +
+            harmonic5 * 0.13 +
+            harmonic6 * 0.08;
+
         return
-            std::sin(phase) * 0.55 +
-            std::sin(phase * 2.0) * 0.30 +
-            std::sin(phase * 3.0) * 0.20;
+            brass *
+            attack *
+            sustain;
     }
+
+    // --------------------------------------------------------
+    // BELL
+    // --------------------------------------------------------
 
     if (instrument == "BELL")
     {
+        double envelope =
+            std::exp(-2.5 * t);
+
         return
-            std::sin(phase) +
-            std::sin(phase * 2.71) * 0.4 +
-            std::sin(phase * 4.13) * 0.2;
+            (
+                std::sin(phase) +
+                std::sin(phase * 2.71) * 0.4 +
+                std::sin(phase * 4.13) * 0.2
+            )
+            *
+            envelope;
     }
 
     return std::sin(phase);
+}
+
+// ============================================================
+// INSTRUMENT MIX LEVEL
+// ============================================================
+//
+// This controls how loud each instrument is in the final mix.
+//
+// Bass is intentionally much louder than before.
+// Guitar and trumpet also have different levels so they remain
+// clearly audible without being identical.
+// ============================================================
+
+double instrumentGain(
+    const std::string& instrument)
+{
+    if (instrument == "BASS")
+        return 0.55;
+
+    if (instrument == "GUITAR")
+        return 0.30;
+
+    if (instrument == "TRUMPET")
+        return 0.34;
+
+    if (instrument == "PIANO")
+        return 0.24;
+
+    if (instrument == "SYNTH")
+        return 0.25;
+
+    if (instrument == "ORGAN")
+        return 0.24;
+
+    if (instrument == "FLUTE")
+        return 0.24;
+
+    if (instrument == "BELL")
+        return 0.27;
+
+    return 0.25;
 }
 
 // ============================================================
@@ -549,8 +743,7 @@ double makeDrum(
 {
     if (
         type == "KICK" ||
-        type == "BASS_DRUM"
-    )
+        type == "BASS_DRUM")
         return kick(t);
 
     if (type == "SNARE")
@@ -558,14 +751,12 @@ double makeDrum(
 
     if (
         type == "HIHAT" ||
-        type == "CLOSED_HIHAT"
-    )
+        type == "CLOSED_HIHAT")
         return closedHiHat(t);
 
     if (
         type == "OPEN_HIHAT" ||
-        type == "OPENHIHAT"
-    )
+        type == "OPENHIHAT")
         return openHiHat(t);
 
     if (type == "CLAP")
@@ -907,6 +1098,12 @@ bool GenerateAudio(
             note.frequency *
             pitchMultiplier;
 
+        // Each instrument gets its own mix level.
+        double gain =
+            instrumentGain(
+                note.instrument
+            );
+
         for (
             int i = 0;
             i < noteSamples;
@@ -927,6 +1124,7 @@ bool GenerateAudio(
 
             double envelope = 1.0;
 
+            // Attack.
             if (time < 0.01)
             {
                 envelope =
@@ -937,6 +1135,7 @@ bool GenerateAudio(
                 durationSeconds -
                 time;
 
+            // Release.
             if (remaining < 0.05)
             {
                 envelope =
@@ -959,7 +1158,7 @@ bool GenerateAudio(
             audio[index] +=
                 wave *
                 envelope *
-                0.18;
+                gain;
         }
     }
 
@@ -1016,6 +1215,15 @@ bool GenerateAudio(
     }
 
     // ========================================================
+    // MASTER GAIN
+    //
+    // Slightly louder overall than the original version.
+    // The final limiter below prevents digital clipping.
+    // ========================================================
+
+    const double MASTER_GAIN = 1.25;
+
+    // ========================================================
     // CONVERT TO PCM
     // ========================================================
 
@@ -1029,11 +1237,37 @@ bool GenerateAudio(
         ++i)
     {
         double value =
+            audio[i] *
+            MASTER_GAIN;
+
+        // Soft saturation before hard limiting.
+        // This lets us make the mix louder without simply
+        // producing harsh clipping.
+        if (value > 1.0)
+        {
+            value =
+                1.0 -
+                std::exp(
+                    -(value - 1.0) * 2.5
+                ) *
+                0.15;
+        }
+        else if (value < -1.0)
+        {
+            value =
+                -1.0 +
+                std::exp(
+                    -(-value - 1.0) * 2.5
+                ) *
+                0.15;
+        }
+
+        value =
             std::max(
                 -1.0,
                 std::min(
                     1.0,
-                    audio[i]
+                    value
                 )
             );
 
@@ -1515,14 +1749,6 @@ void PlaySong(
             playerIndex
         );
 
-    // --------------------------------------------------------
-    // EMPTY PLAYER
-    //
-    // This is important:
-    // An empty player simply does nothing.
-    // It does NOT prevent other players from working.
-    // --------------------------------------------------------
-
     if (songText.empty())
     {
         playing[playerIndex] = false;
@@ -1536,10 +1762,6 @@ void PlaySong(
 
         return;
     }
-
-    // --------------------------------------------------------
-    // CHECK THAT THE SONG ACTUALLY CONTAINS SOMETHING
-    // --------------------------------------------------------
 
     std::vector<NoteEvent> notes;
     std::vector<DrumEvent> drums;
@@ -1571,9 +1793,9 @@ void PlaySong(
         return;
     }
 
-    // --------------------------------------------------------
+    // ========================================================
     // AUDIO FORMAT
-    // --------------------------------------------------------
+    // ========================================================
 
     WAVEFORMATEX format = {};
 
@@ -1627,9 +1849,9 @@ void PlaySong(
         return;
     }
 
-    // --------------------------------------------------------
+    // ========================================================
     // AUDIO BUFFERS
-    // --------------------------------------------------------
+    // ========================================================
 
     std::vector<short> audioSamples[
         AUDIO_BUFFER_COUNT
@@ -1647,9 +1869,9 @@ void PlaySong(
         AUDIO_BUFFER_COUNT
     ] = {};
 
-    // --------------------------------------------------------
+    // ========================================================
     // GENERATE BUFFER
-    // --------------------------------------------------------
+    // ========================================================
 
     auto generateBuffer =
         [&](int bufferIndex) -> bool
@@ -1670,9 +1892,9 @@ void PlaySong(
         );
     };
 
-    // --------------------------------------------------------
+    // ========================================================
     // GENERATE FIRST BUFFER
-    // --------------------------------------------------------
+    // ========================================================
 
     if (!generateBuffer(0))
     {
@@ -1692,9 +1914,9 @@ void PlaySong(
         return;
     }
 
-    // --------------------------------------------------------
+    // ========================================================
     // PREPARE AND WRITE BUFFER
-    // --------------------------------------------------------
+    // ========================================================
 
     auto prepareAndWrite =
         [&](int bufferIndex) -> bool
@@ -1755,9 +1977,9 @@ void PlaySong(
         return true;
     };
 
-    // --------------------------------------------------------
+    // ========================================================
     // WRITE FIRST BUFFER
-    // --------------------------------------------------------
+    // ========================================================
 
     if (!prepareAndWrite(0))
     {
@@ -1781,12 +2003,9 @@ void PlaySong(
         return;
     }
 
-    // --------------------------------------------------------
+    // ========================================================
     // LOOPING
-    //
-    // If loop is already ON when playback starts,
-    // prepare the second buffer immediately.
-    // --------------------------------------------------------
+    // ========================================================
 
     if (looping[playerIndex])
     {
@@ -1803,19 +2022,15 @@ void PlaySong(
         }
     }
 
-    // --------------------------------------------------------
+    // ========================================================
     // PLAYBACK LOOP
-    // --------------------------------------------------------
+    // ========================================================
 
     while (
         !stopRequested[playerIndex])
     {
         bool didSomething =
             false;
-
-        // ----------------------------------------------------
-        // CHECK COMPLETED BUFFERS
-        // ----------------------------------------------------
 
         for (
             int i = 0;
@@ -1843,25 +2058,11 @@ void PlaySong(
             prepared[i] = false;
             queued[i] = false;
 
-            // ------------------------------------------------
-            // IF LOOP IS OFF:
-            //
-            // Do not add another buffer.
-            // Playback will finish naturally.
-            // ------------------------------------------------
-
             if (!looping[playerIndex])
                 continue;
 
             if (stopRequested[playerIndex])
                 continue;
-
-            // ------------------------------------------------
-            // REGENERATE COMPLETED BUFFER
-            //
-            // This allows tempo and pitch changes to affect
-            // the next loop.
-            // ------------------------------------------------
 
             if (!generateBuffer(i))
             {
@@ -1875,10 +2076,6 @@ void PlaySong(
                 continue;
             }
         }
-
-        // ----------------------------------------------------
-        // IF NOT LOOPING, EXIT AFTER ALL AUDIO IS FINISHED
-        // ----------------------------------------------------
 
         if (!looping[playerIndex])
         {
@@ -1905,9 +2102,9 @@ void PlaySong(
             Sleep(1);
     }
 
-    // --------------------------------------------------------
+    // ========================================================
     // STOP AUDIO
-    // --------------------------------------------------------
+    // ========================================================
 
     waveOutReset(
         audioDevice
@@ -2039,10 +2236,6 @@ LRESULT CALLBACK WindowProcedure(
         {
             int id =
                 LOWORD(wParam);
-
-            // ------------------------------------------------
-            // PLAYER CONTROLS
-            // ------------------------------------------------
 
             for (
                 int p = 0;
@@ -2954,7 +3147,6 @@ int WINAPI WinMain(
         // TEXT INPUT
         //
         // Every player starts EMPTY.
-        // Empty players are allowed.
         // ----------------------------------------------------
 
         songEditor[i] =
