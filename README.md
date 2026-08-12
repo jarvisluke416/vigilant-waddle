@@ -25,7 +25,7 @@ PIANO G4 0 1
 PIANO A#4 0 1
 
 Piano
-Major chords
+ chords
 C*
 PIANO C4 0 1
 PIANO E4 0 1
