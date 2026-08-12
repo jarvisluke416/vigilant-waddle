@@ -12,17 +12,19 @@ LENGTH 32 = 16 seconds
 LENGTH 64 = 32 seconds
 LENGTH 128 = 64 seconds
 
-So if you want a longer song, you can simply do:
-
+Simply place 
 TEMPO 120
-LENGTH 32
+LENGTH 32 at the top of the input window followed by your instruments and press play
 
 
+EXAMPLE
+TEMPO 120
+LENGTH 32 
+PIANO D#4 0 1
+PIANO G4 0 1
+PIANO A#4 0 1/
 
-One thing to watch: your program generates the entire audio buffer in memory, so extremely large lengths will eventually use more RAM and take longer to generate. For normal songs, 16–128 beats should be perfectly reasonable with this code.
-TEMPO, LENGTH
-Notes	NOTE
-Instruments	PIANO PIANO NOTE START_BEAT DURATION_BEATS
+
 
 
 Piano
