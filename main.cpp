@@ -7,6 +7,7 @@
 #include <random>
 #include <sstream>
 #include <string>
+#include <cstdio>
 #include <thread>
 #include <vector>
 
@@ -1340,11 +1341,14 @@ void UpdateBoostDisplay(int playerIndex)
 
     char text[64];
 
+    // wsprintfA does NOT support floating-point formatting.
+    // Use snprintf instead.
     double multiplier =
         GetVolumeMultiplier(level);
 
-    wsprintfA(
+    snprintf(
         text,
+        sizeof(text),
         "BOOST: %.1fx",
         multiplier
     );
