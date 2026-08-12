@@ -36,6 +36,21 @@ const int PITCH_STEP = 1;
 const int AUDIO_BUFFER_COUNT = 2;
 
 // ============================================================
+// MASTER LOUDNESS
+// ============================================================
+
+// Overall volume applied to the entire generated mix.
+//
+// Increase this if you want EVERYTHING louder.
+//
+// 1.0 = original level
+// 2.0 = 2x
+// 2.5 = current setting
+// 3.0 = very loud
+//
+const double MASTER_GAIN = 2.5;
+
+// ============================================================
 // COLORS
 // ============================================================
 
@@ -60,12 +75,22 @@ std::atomic_bool stopRequested[PLAYER_COUNT];
 std::atomic<double> currentTempo[PLAYER_COUNT];
 std::atomic<int> currentPitch[PLAYER_COUNT];
 
+// Volume boost:
+//
+// 0 = 1.0x
+// 1 = 2.0x
+// 2 = 3.5x
+// 3 = 5.0x
+//
+std::atomic<int> volumeBoost[PLAYER_COUNT];
+
 // ============================================================
 // WINDOWS CONTROLS
 // ============================================================
 
 HWND playButton[PLAYER_COUNT] = {};
 HWND loopButton[PLAYER_COUNT] = {};
+HWND boostButton[PLAYER_COUNT] = {};
 
 HWND tempoMinusButton[PLAYER_COUNT] = {};
 HWND tempoPlusButton[PLAYER_COUNT] = {};
@@ -80,7 +105,7 @@ HWND songEditor[PLAYER_COUNT] = {};
 HWND mainWindow = nullptr;
 
 // ============================================================
-// SCROLLING
+// SCROLLING / LAYOUT
 // ============================================================
 
 int scrollY = 0;
@@ -89,7 +114,7 @@ int contentHeight = 0;
 const int TOP_BAR_HEIGHT = 75;
 
 const int SECTION_WIDTH = 260;
-const int SECTION_HEIGHT = 520;
+const int SECTION_HEIGHT = 560;
 
 const int GRID_GAP = 10;
 
@@ -213,10 +238,7 @@ double instrumentWave(
     double t)
 {
     double phase =
-        2.0 *
-        PI *
-        frequency *
-        t;
+        2.0 * PI * frequency * t;
 
     // --------------------------------------------------------
     // PIANO
@@ -224,105 +246,66 @@ double instrumentWave(
 
     if (instrument == "PIANO")
     {
-        double attack =
-            1.0 - std::exp(-180.0 * t);
-
-        double decay =
-            std::exp(-1.8 * t);
+        double envelope =
+            std::exp(-1.7 * t);
 
         return
             (
                 std::sin(phase) +
                 std::sin(phase * 2.0) * 0.35 +
-                std::sin(phase * 3.0) * 0.15
+                std::sin(phase * 3.0) * 0.15 +
+                std::sin(phase * 4.0) * 0.06
             )
-            *
-            attack
-            *
-            decay;
+            * envelope;
     }
 
     // --------------------------------------------------------
     // BASS
-    //
-    // Strong fundamental plus harmonics so the bass remains
-    // audible on smaller speakers.
     // --------------------------------------------------------
 
     if (instrument == "BASS")
     {
-        double attack =
-            1.0 - std::exp(-120.0 * t);
-
-        double fundamental =
-            std::sin(phase);
-
-        double second =
-            std::sin(phase * 2.0);
-
-        double third =
-            std::sin(phase * 3.0);
-
-        double fourth =
-            std::sin(phase * 4.0);
+        double envelope =
+            std::exp(-1.0 * t);
 
         return
             (
-                fundamental * 1.00 +
-                second * 0.38 +
-                third * 0.12 +
-                fourth * 0.04
+                std::sin(phase) * 0.9 +
+                std::sin(phase * 2.0) * 0.25 +
+                std::sin(phase * 3.0) * 0.08
             )
-            *
-            attack
-            *
-            std::exp(-0.75 * t);
+            * envelope;
     }
 
     // --------------------------------------------------------
     // GUITAR
-    //
-    // Guitar is now distinctly plucked:
-    // - fast attack
-    // - strong 2nd/3rd harmonics
-    // - rapid decay
     // --------------------------------------------------------
 
     if (instrument == "GUITAR")
     {
         double attack =
-            1.0 - std::exp(-350.0 * t);
+            1.0 - std::exp(-120.0 * t);
 
         double decay =
-            std::exp(-4.2 * t);
+            std::exp(-3.8 * t);
 
-        double harmonic1 =
-            std::sin(phase);
+        double pluck =
+            std::exp(-35.0 * t);
 
-        double harmonic2 =
-            std::sin(phase * 2.0);
-
-        double harmonic3 =
-            std::sin(phase * 3.0);
-
-        double harmonic4 =
-            std::sin(phase * 4.0);
-
-        double harmonic5 =
-            std::sin(phase * 5.0);
+        double sound =
+            std::sin(phase) * 0.60 +
+            std::sin(phase * 2.0) * 0.30 +
+            std::sin(phase * 3.0) * 0.18 +
+            std::sin(phase * 5.0) * 0.08;
 
         return
-            (
-                harmonic1 * 0.75 +
-                harmonic2 * 0.32 +
-                harmonic3 * 0.22 +
-                harmonic4 * 0.12 +
-                harmonic5 * 0.06
-            )
-            *
-            attack
-            *
-            decay;
+            sound *
+            attack *
+            decay
+            +
+            std::sin(phase * 2.0) *
+            pluck *
+            0.12;
     }
 
     // --------------------------------------------------------
@@ -340,7 +323,7 @@ double instrumentWave(
                 )
             );
 
-        return saw;
+        return saw * 0.8;
     }
 
     // --------------------------------------------------------
@@ -350,9 +333,10 @@ double instrumentWave(
     if (instrument == "ORGAN")
     {
         return
-            std::sin(phase) * 0.7 +
+            std::sin(phase) * 0.65 +
             std::sin(phase * 2.0) * 0.25 +
-            std::sin(phase * 4.0) * 0.10;
+            std::sin(phase * 4.0) * 0.12 +
+            std::sin(phase * 8.0) * 0.04;
     }
 
     // --------------------------------------------------------
@@ -361,21 +345,16 @@ double instrumentWave(
 
     if (instrument == "FLUTE")
     {
-        double breath =
-            noise() * 0.025;
-
         return
-            std::sin(phase) * 0.85 +
-            std::sin(phase * 2.0) * 0.10 +
-            breath;
+            (
+                std::sin(phase) * 0.85 +
+                std::sin(phase * 2.0) * 0.10
+            )
+            * std::exp(-0.8 * t);
     }
 
     // --------------------------------------------------------
     // TRUMPET
-    //
-    // Trumpet is now considerably brighter than guitar.
-    // Strong 2nd, 3rd, 4th and 5th harmonics plus a brass-like
-    // attack envelope.
     // --------------------------------------------------------
 
     if (instrument == "TRUMPET")
@@ -383,41 +362,22 @@ double instrumentWave(
         double attack =
             1.0 - std::exp(-45.0 * t);
 
-        double sustain =
-            0.82 +
-            0.18 *
-            std::exp(-2.0 * t);
-
-        double harmonic1 =
-            std::sin(phase);
-
-        double harmonic2 =
-            std::sin(phase * 2.0);
-
-        double harmonic3 =
-            std::sin(phase * 3.0);
-
-        double harmonic4 =
-            std::sin(phase * 4.0);
-
-        double harmonic5 =
-            std::sin(phase * 5.0);
-
-        double harmonic6 =
-            std::sin(phase * 6.0);
+        double envelope =
+            0.85 +
+            0.15 * std::exp(-1.0 * t);
 
         double brass =
-            harmonic1 * 0.55 +
-            harmonic2 * 0.34 +
-            harmonic3 * 0.28 +
-            harmonic4 * 0.20 +
-            harmonic5 * 0.13 +
-            harmonic6 * 0.08;
+            std::sin(phase) * 0.45 +
+            std::sin(phase * 2.0) * 0.30 +
+            std::sin(phase * 3.0) * 0.28 +
+            std::sin(phase * 4.0) * 0.20 +
+            std::sin(phase * 5.0) * 0.14 +
+            std::sin(phase * 6.0) * 0.08;
 
         return
             brass *
             attack *
-            sustain;
+            envelope;
     }
 
     // --------------------------------------------------------
@@ -427,7 +387,7 @@ double instrumentWave(
     if (instrument == "BELL")
     {
         double envelope =
-            std::exp(-2.5 * t);
+            std::exp(-2.2 * t);
 
         return
             (
@@ -435,52 +395,10 @@ double instrumentWave(
                 std::sin(phase * 2.71) * 0.4 +
                 std::sin(phase * 4.13) * 0.2
             )
-            *
-            envelope;
+            * envelope;
     }
 
     return std::sin(phase);
-}
-
-// ============================================================
-// INSTRUMENT MIX LEVEL
-// ============================================================
-//
-// This controls how loud each instrument is in the final mix.
-//
-// Bass is intentionally much louder than before.
-// Guitar and trumpet also have different levels so they remain
-// clearly audible without being identical.
-// ============================================================
-
-double instrumentGain(
-    const std::string& instrument)
-{
-    if (instrument == "BASS")
-        return 0.55;
-
-    if (instrument == "GUITAR")
-        return 0.30;
-
-    if (instrument == "TRUMPET")
-        return 0.34;
-
-    if (instrument == "PIANO")
-        return 0.24;
-
-    if (instrument == "SYNTH")
-        return 0.25;
-
-    if (instrument == "ORGAN")
-        return 0.24;
-
-    if (instrument == "FLUTE")
-        return 0.24;
-
-    if (instrument == "BELL")
-        return 0.27;
-
-    return 0.25;
 }
 
 // ============================================================
@@ -489,23 +407,36 @@ double instrumentGain(
 
 double kick(double t)
 {
-    if (t < 0 || t >= 0.7)
+    if (t < 0.0 || t >= 0.8)
         return 0.0;
 
     double frequency =
-        150.0 * std::exp(-12.0 * t) + 45.0;
+        180.0 *
+        std::exp(-18.0 * t)
+        +
+        42.0;
 
     double envelope =
-        std::exp(-7.0 * t);
+        std::exp(-5.5 * t);
 
-    return
+    double transient =
+        std::exp(-70.0 * t);
+
+    double body =
         std::sin(
             2.0 *
             PI *
             frequency *
             t
-        ) *
-        envelope;
+        );
+
+    return
+        body *
+        envelope *
+        1.25
+        +
+        transient *
+        0.40;
 }
 
 double snare(double t)
@@ -517,7 +448,8 @@ double snare(double t)
         std::exp(-15.0 * t);
 
     double noisePart =
-        noise() * envelope;
+        noise() *
+        envelope;
 
     double body =
         std::sin(
@@ -530,7 +462,7 @@ double snare(double t)
 
     return
         noisePart * 0.8 +
-        body * 0.2;
+        body * 0.25;
 }
 
 double closedHiHat(double t)
@@ -597,7 +529,8 @@ double tom(
 
     double pitch =
         frequency *
-        std::exp(-3.0 * t) +
+        std::exp(-3.0 * t)
+        +
         frequency * 0.4;
 
     double envelope =
@@ -796,8 +729,7 @@ double makeDrum(
 // UPPERCASE
 // ============================================================
 
-std::string upper(
-    std::string value)
+std::string upper(std::string value)
 {
     for (char& c : value)
     {
@@ -814,7 +746,7 @@ std::string upper(
 }
 
 // ============================================================
-// LOAD SONG FROM EDITOR TEXT
+// LOAD SONG
 // ============================================================
 
 bool LoadSongText(
@@ -831,7 +763,6 @@ bool LoadSongText(
     loopLengthBeats = 4.0;
 
     std::istringstream input(text);
-
     std::string command;
 
     while (input >> command)
@@ -851,7 +782,6 @@ bool LoadSongText(
                     )
                 );
         }
-
         else if (command == "LENGTH")
         {
             input >> loopLengthBeats;
@@ -859,17 +789,16 @@ bool LoadSongText(
             if (loopLengthBeats <= 0.0)
                 loopLengthBeats = 4.0;
         }
-
         else if (command == "NOTE")
         {
             std::string noteName;
             double startBeat;
             double durationBeats;
 
-            input
-                >> noteName
-                >> startBeat
-                >> durationBeats;
+            input >>
+                noteName >>
+                startBeat >>
+                durationBeats;
 
             double frequency =
                 noteFrequency(
@@ -888,7 +817,6 @@ bool LoadSongText(
                 );
             }
         }
-
         else if (
             command == "PIANO" ||
             command == "BASS" ||
@@ -903,10 +831,10 @@ bool LoadSongText(
             double startBeat;
             double durationBeats;
 
-            input
-                >> noteName
-                >> startBeat
-                >> durationBeats;
+            input >>
+                noteName >>
+                startBeat >>
+                durationBeats;
 
             double frequency =
                 noteFrequency(
@@ -925,15 +853,14 @@ bool LoadSongText(
                 );
             }
         }
-
         else if (command == "DRUM")
         {
             std::string drumType;
             double startBeat;
 
-            input
-                >> drumType
-                >> startBeat;
+            input >>
+                drumType >>
+                startBeat;
 
             drums.push_back(
                 {
@@ -951,15 +878,12 @@ bool LoadSongText(
 // GET EDITOR TEXT
 // ============================================================
 
-std::string GetEditorText(
-    int playerIndex)
+std::string GetEditorText(int playerIndex)
 {
     if (
         playerIndex < 0 ||
         playerIndex >= PLAYER_COUNT)
-    {
         return "";
-    }
 
     HWND editor =
         songEditor[playerIndex];
@@ -991,6 +915,28 @@ std::string GetEditorText(
 }
 
 // ============================================================
+// VOLUME BOOST VALUE
+// ============================================================
+
+double GetVolumeMultiplier(int level)
+{
+    switch (level)
+    {
+        case 1:
+            return 2.0;
+
+        case 2:
+            return 3.5;
+
+        case 3:
+            return 5.0;
+
+        default:
+            return 1.0;
+    }
+}
+
+// ============================================================
 // GENERATE AUDIO
 // ============================================================
 
@@ -998,6 +944,7 @@ bool GenerateAudio(
     const std::string& text,
     double tempoOverride,
     int pitchSemitones,
+    double volumeMultiplier,
     std::vector<short>& samples)
 {
     std::vector<NoteEvent> notes;
@@ -1037,8 +984,7 @@ bool GenerateAudio(
     double pitchMultiplier =
         std::pow(
             2.0,
-            static_cast<double>(pitch) /
-            12.0
+            static_cast<double>(pitch) / 12.0
         );
 
     double secondsPerBeat =
@@ -1098,12 +1044,6 @@ bool GenerateAudio(
             note.frequency *
             pitchMultiplier;
 
-        // Each instrument gets its own mix level.
-        double gain =
-            instrumentGain(
-                note.instrument
-            );
-
         for (
             int i = 0;
             i < noteSamples;
@@ -1124,7 +1064,6 @@ bool GenerateAudio(
 
             double envelope = 1.0;
 
-            // Attack.
             if (time < 0.01)
             {
                 envelope =
@@ -1135,7 +1074,6 @@ bool GenerateAudio(
                 durationSeconds -
                 time;
 
-            // Release.
             if (remaining < 0.05)
             {
                 envelope =
@@ -1155,10 +1093,11 @@ bool GenerateAudio(
                     time
                 );
 
+            // MUCH LOUDER than the original 0.18.
             audio[index] +=
                 wave *
                 envelope *
-                gain;
+                0.55;
         }
     }
 
@@ -1204,28 +1143,57 @@ bool GenerateAudio(
                 static_cast<double>(i) /
                 SAMPLE_RATE;
 
+            // =================================================
+            // MUCH LOUDER DRUM LEVELS
+            // =================================================
+
+            double drumVolume = 1.50;
+
+            if (
+                drum.type == "KICK" ||
+                drum.type == "BASS_DRUM")
+            {
+                drumVolume = 2.25;
+            }
+            else if (drum.type == "SNARE")
+            {
+                drumVolume = 1.75;
+            }
+            else if (
+                drum.type == "HIHAT" ||
+                drum.type == "CLOSED_HIHAT")
+            {
+                drumVolume = 1.10;
+            }
+            else if (drum.type == "OPEN_HIHAT")
+            {
+                drumVolume = 1.30;
+            }
+            else if (drum.type == "CRASH")
+            {
+                drumVolume = 1.50;
+            }
+            else if (drum.type == "RIDE")
+            {
+                drumVolume = 1.25;
+            }
+
             audio[index] +=
                 makeDrum(
                     drum.type,
                     time
                 )
                 *
-                0.45;
+                drumVolume;
         }
     }
 
     // ========================================================
-    // MASTER GAIN
-    //
-    // Slightly louder overall than the original version.
-    // The final limiter below prevents digital clipping.
+    // MASTER VOLUME + BOOST + SOFT LIMITER
     // ========================================================
 
-    const double MASTER_GAIN = 1.25;
-
-    // ========================================================
-    // CONVERT TO PCM
-    // ========================================================
+    if (volumeMultiplier < 1.0)
+        volumeMultiplier = 1.0;
 
     samples.resize(
         totalSamples
@@ -1238,38 +1206,15 @@ bool GenerateAudio(
     {
         double value =
             audio[i] *
-            MASTER_GAIN;
+            MASTER_GAIN *
+            volumeMultiplier;
 
-        // Soft saturation before hard limiting.
-        // This lets us make the mix louder without simply
-        // producing harsh clipping.
-        if (value > 1.0)
-        {
-            value =
-                1.0 -
-                std::exp(
-                    -(value - 1.0) * 2.5
-                ) *
-                0.15;
-        }
-        else if (value < -1.0)
-        {
-            value =
-                -1.0 +
-                std::exp(
-                    -(-value - 1.0) * 2.5
-                ) *
-                0.15;
-        }
-
+        // Soft saturation prevents hard digital clipping.
+        //
+        // tanh() keeps the final value between -1 and +1
+        // while allowing us to push the mix considerably harder.
         value =
-            std::max(
-                -1.0,
-                std::min(
-                    1.0,
-                    value
-                )
-            );
+            std::tanh(value);
 
         samples[i] =
             static_cast<short>(
@@ -1291,6 +1236,7 @@ bool GenerateAudio(
 #define ID_TEMPO_PLUS_BASE   1300
 #define ID_PITCH_MINUS_BASE  1400
 #define ID_PITCH_PLUS_BASE   1500
+#define ID_BOOST_BASE        1600
 
 // ============================================================
 // EDIT CONTROL COLORS
@@ -1302,8 +1248,7 @@ HBRUSH editBrush = nullptr;
 // UPDATE TEMPO
 // ============================================================
 
-void UpdateTempoDisplay(
-    int playerIndex)
+void UpdateTempoDisplay(int playerIndex)
 {
     if (
         playerIndex < 0 ||
@@ -1338,8 +1283,7 @@ void UpdateTempoDisplay(
 // UPDATE PITCH
 // ============================================================
 
-void UpdatePitchDisplay(
-    int playerIndex)
+void UpdatePitchDisplay(int playerIndex)
 {
     if (
         playerIndex < 0 ||
@@ -1378,7 +1322,41 @@ void UpdatePitchDisplay(
 }
 
 // ============================================================
-// CREATE BUTTON ID
+// UPDATE BOOST
+// ============================================================
+
+void UpdateBoostDisplay(int playerIndex)
+{
+    if (
+        playerIndex < 0 ||
+        playerIndex >= PLAYER_COUNT)
+        return;
+
+    if (!boostButton[playerIndex])
+        return;
+
+    int level =
+        volumeBoost[playerIndex].load();
+
+    char text[64];
+
+    double multiplier =
+        GetVolumeMultiplier(level);
+
+    wsprintfA(
+        text,
+        "BOOST: %.1fx",
+        multiplier
+    );
+
+    SetWindowTextA(
+        boostButton[playerIndex],
+        text
+    );
+}
+
+// ============================================================
+// PLAYER BUTTON ID
 // ============================================================
 
 int PlayerButtonID(
@@ -1392,8 +1370,7 @@ int PlayerButtonID(
 // CONTENT HEIGHT
 // ============================================================
 
-int CalculateContentHeight(
-    RECT rect)
+int CalculateContentHeight(RECT rect)
 {
     int rowHeight =
         SECTION_HEIGHT +
@@ -1405,7 +1382,8 @@ int CalculateContentHeight(
         rowHeight +
         30;
 
-    return (height > rect.bottom)
+    return
+        (height > rect.bottom)
         ? height
         : rect.bottom;
 }
@@ -1414,8 +1392,7 @@ int CalculateContentHeight(
 // UPDATE SCROLL BAR
 // ============================================================
 
-void UpdateScrollBar(
-    HWND window)
+void UpdateScrollBar(HWND window)
 {
     RECT rect;
 
@@ -1476,8 +1453,7 @@ void UpdateScrollBar(
 // MOVE PLAYER CONTROLS
 // ============================================================
 
-void ResizePlayerControls(
-    HWND window)
+void ResizePlayerControls(HWND window)
 {
     RECT rect;
 
@@ -1526,85 +1502,103 @@ void ResizePlayerControls(
             sectionWidth = 180;
 
         int buttonWidth =
-            sectionWidth -
-            20;
+            sectionWidth - 20;
 
+        // PLAY
         MoveWindow(
             playButton[i],
             x + 10,
             y + 45,
             buttonWidth,
-            42,
+            40,
             TRUE
         );
 
+        // LOOP
         MoveWindow(
             loopButton[i],
             x + 10,
-            y + 92,
+            y + 90,
             buttonWidth,
-            35,
+            34,
             TRUE
         );
 
+        // BOOST
+        MoveWindow(
+            boostButton[i],
+            x + 10,
+            y + 128,
+            buttonWidth,
+            34,
+            TRUE
+        );
+
+        // TEMPO -
         MoveWindow(
             tempoMinusButton[i],
             x + 10,
-            y + 135,
+            y + 168,
             40,
             35,
             TRUE
         );
 
+        // TEMPO LABEL
         MoveWindow(
             tempoLabel[i],
             x + 55,
-            y + 135,
+            y + 168,
             buttonWidth - 45,
             35,
             TRUE
         );
 
+        // TEMPO +
         MoveWindow(
             tempoPlusButton[i],
             x + 10,
-            y + 175,
+            y + 208,
             buttonWidth,
             35,
             TRUE
         );
 
+        // PITCH -
         MoveWindow(
             pitchMinusButton[i],
             x + 10,
-            y + 217,
+            y + 248,
             40,
             35,
             TRUE
         );
 
+        // PITCH LABEL
         MoveWindow(
             pitchLabel[i],
             x + 55,
-            y + 217,
+            y + 248,
             buttonWidth - 45,
             35,
             TRUE
         );
 
+        // PITCH +
         MoveWindow(
             pitchPlusButton[i],
             x + 10,
-            y + 257,
+            y + 288,
             buttonWidth,
             35,
             TRUE
         );
 
+        // EDITOR
         MoveWindow(
             songEditor[i],
             x + 10,
-            y + 300,
+            y + 330,
             buttonWidth,
             EDIT_HEIGHT,
             TRUE
@@ -1730,8 +1724,7 @@ void DrawPlayerSections(
 // PLAY ONE PLAYER
 // ============================================================
 
-void PlaySong(
-    int playerIndex)
+void PlaySong(int playerIndex)
 {
     if (
         playerIndex < 0 ||
@@ -1749,6 +1742,7 @@ void PlaySong(
             playerIndex
         );
 
+    // Empty player does nothing.
     if (songText.empty())
     {
         playing[playerIndex] = false;
@@ -1763,6 +1757,7 @@ void PlaySong(
         return;
     }
 
+    // Check that the song contains valid events.
     std::vector<NoteEvent> notes;
     std::vector<DrumEvent> drums;
 
@@ -1882,10 +1877,19 @@ void PlaySong(
         int pitch =
             currentPitch[playerIndex].load();
 
+        int boostLevel =
+            volumeBoost[playerIndex].load();
+
+        double multiplier =
+            GetVolumeMultiplier(
+                boostLevel
+            );
+
         return GenerateAudio(
             songText,
             tempo,
             pitch,
+            multiplier,
             audioSamples[
                 bufferIndex
             ]
@@ -1915,7 +1919,7 @@ void PlaySong(
     }
 
     // ========================================================
-    // PREPARE AND WRITE BUFFER
+    // PREPARE / WRITE
     // ========================================================
 
     auto prepareAndWrite =
@@ -1925,12 +1929,16 @@ void PlaySong(
 
         headers[bufferIndex].lpData =
             reinterpret_cast<LPSTR>(
-                audioSamples[bufferIndex].data()
+                audioSamples[
+                    bufferIndex
+                ].data()
             );
 
         headers[bufferIndex].dwBufferLength =
             static_cast<DWORD>(
-                audioSamples[bufferIndex].size() *
+                audioSamples[
+                    bufferIndex
+                ].size() *
                 sizeof(short)
             );
 
@@ -2004,7 +2012,7 @@ void PlaySong(
     }
 
     // ========================================================
-    // LOOPING
+    // LOOPING ALREADY ENABLED
     // ========================================================
 
     if (looping[playerIndex])
@@ -2058,12 +2066,15 @@ void PlaySong(
             prepared[i] = false;
             queued[i] = false;
 
+            // If loop is off, don't queue another buffer.
             if (!looping[playerIndex])
                 continue;
 
             if (stopRequested[playerIndex])
                 continue;
 
+            // Generate the next loop using current
+            // tempo, pitch and volume boost.
             if (!generateBuffer(i))
             {
                 stopRequested[playerIndex] = true;
@@ -2077,6 +2088,7 @@ void PlaySong(
             }
         }
 
+        // Non-looping playback finishes naturally.
         if (!looping[playerIndex])
         {
             bool anythingQueued =
@@ -2181,7 +2193,7 @@ LRESULT CALLBACK WindowProcedure(
         }
 
         // ====================================================
-        // EDITOR COLOR
+        // EDIT COLOR
         // ====================================================
 
         case WM_CTLCOLOREDIT:
@@ -2301,6 +2313,35 @@ LRESULT CALLBACK WindowProcedure(
                         looping[p]
                             ? "LOOP: ON"
                             : "LOOP: OFF"
+                    );
+
+                    break;
+                }
+
+                // --------------------------------------------
+                // VOLUME BOOST
+                // --------------------------------------------
+
+                if (
+                    id ==
+                    PlayerButtonID(
+                        ID_BOOST_BASE,
+                        p
+                    ))
+                {
+                    int level =
+                        volumeBoost[p].load();
+
+                    level++;
+
+                    if (level > 3)
+                        level = 0;
+
+                    volumeBoost[p] =
+                        level;
+
+                    UpdateBoostDisplay(
+                        p
                     );
 
                     break;
@@ -2714,10 +2755,6 @@ LRESULT CALLBACK WindowProcedure(
                 &rect
             );
 
-            // -----------------------------------------------
-            // BACKGROUND
-            // -----------------------------------------------
-
             HBRUSH backgroundBrush =
                 CreateSolidBrush(
                     BACKGROUND
@@ -2733,18 +2770,10 @@ LRESULT CALLBACK WindowProcedure(
                 backgroundBrush
             );
 
-            // -----------------------------------------------
-            // PLAYER SECTIONS
-            // -----------------------------------------------
-
             DrawPlayerSections(
                 dc,
                 rect
             );
-
-            // -----------------------------------------------
-            // TOP BAR
-            // -----------------------------------------------
 
             RECT topBar =
             {
@@ -2854,6 +2883,9 @@ int WINAPI WinMain(
 
         currentPitch[i] =
             0;
+
+        volumeBoost[i] =
+            0;
     }
 
     // ========================================================
@@ -2943,6 +2975,12 @@ int WINAPI WinMain(
                 i
             );
 
+        int boostID =
+            PlayerButtonID(
+                ID_BOOST_BASE,
+                i
+            );
+
         int tempoMinusID =
             PlayerButtonID(
                 ID_TEMPO_MINUS_BASE,
@@ -3007,6 +3045,28 @@ int WINAPI WinMain(
                 window,
                 (HMENU)(INT_PTR)
                     loopID,
+                instance,
+                nullptr
+            );
+
+        // ----------------------------------------------------
+        // VOLUME BOOST
+        // ----------------------------------------------------
+
+        boostButton[i] =
+            CreateWindowA(
+                "BUTTON",
+                "BOOST: 1.0x",
+                WS_VISIBLE |
+                WS_CHILD |
+                BS_PUSHBUTTON,
+                0,
+                0,
+                100,
+                35,
+                window,
+                (HMENU)(INT_PTR)
+                    boostID,
                 instance,
                 nullptr
             );
@@ -3144,9 +3204,7 @@ int WINAPI WinMain(
             );
 
         // ----------------------------------------------------
-        // TEXT INPUT
-        //
-        // Every player starts EMPTY.
+        // SONG EDITOR
         // ----------------------------------------------------
 
         songEditor[i] =
