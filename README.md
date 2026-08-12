@@ -1273,30 +1273,252 @@ BELL G#6 8 1
 BELL A6 9 1
 BELL A#6 10 1
 BELL B6 11 1
-🔔 Example bell melody
 
-Bells can sound especially nice with shorter notes:
+🔔 Bell chords
+C Major*
+BELL C4 0 1
+BELL E4 0 1
+BELL G4 0 1/
+C# Major*
+BELL C#4 0 1
+BELL F4 0 1
+BELL G#4 0 1/
+D Major*
+BELL D4 0 1
+BELL F#4 0 1
+BELL A4 0 1/
+D# Major*
+BELL D#4 0 1
+BELL G4 0 1
+BELL A#4 0 1/
+E Major*
+BELL E4 0 1
+BELL G#4 0 1
+BELL B4 0 1/
+F Major*
+BELL F4 0 1
+BELL A4 0 1
+BELL C5 0 1/
+F# Major*
+BELL F#4 0 1
+BELL A#4 0 1
+BELL C#5 0 1/
+G Major*
+BELL G4 0 1
+BELL B4 0 1
+BELL D5 0 1/
+G# Major*
+BELL G#4 0 1
+BELL C5 0 1
+BELL D#5 0 1/
+A Major*
+BELL A4 0 1
+BELL C#5 0 1
+BELL E5 0 1/
+A# Major*
+BELL A#4 0 1
+BELL D5 0 1
+BELL F5 0 1/
+B Major*
+BELL B4 0 1
+BELL D#5 0 1
+BELL F#5 0 1/
+🔔 Minor Chords
+C Minor*
+BELL C4 0 1
+BELL D#4 0 1
+BELL G4 0 1/
+C# Minor*
+BELL C#4 0 1
+BELL E4 0 1
+BELL G#4 0 1/
+D Minor*
+BELL D4 0 1
+BELL F4 0 1
+BELL A4 0 1/
+D# Minor*
+BELL D#4 0 1
+BELL F#4 0 1
+BELL A#4 0 1/
+E Minor*
+BELL E4 0 1
+BELL G4 0 1
+BELL B4 0 1/
+F Minor*
+BELL F4 0 1
+BELL G#4 0 1
+BELL C5 0 1/
+F# Minor*
+BELL F#4 0 1
+BELL A4 0 1
+BELL C#5 0 1/
+G Minor*
+BELL G4 0 1
+BELL A#4 0 1
+BELL D5 0 1/
+G# Minor*
+BELL G#4 0 1
+BELL B4 0 1
+BELL D#5 0 1/
+A Minor*
+BELL A4 0 1
+BELL C5 0 1
+BELL E5 0 1/
+A# Minor*
+BELL A#4 0 1
+BELL C#5 0 1
+BELL F5 0 1/
+B Minor*
+BELL B4 0 1
+BELL D5 0 1
+BELL F#5 0 1/
+🔔 Major 7th Chords
+Cmaj7*
+BELL C4 0 1
+BELL E4 0 1
+BELL G4 0 1
+BELL B4 0 1/
+C#maj7*
+BELL C#4 0 1
+BELL F4 0 1
+BELL G#4 0 1
+BELL C5 0 1/
+Dmaj7*
+BELL D4 0 1
+BELL F#4 0 1
+BELL A4 0 1
+BELL C#5 0 1/
+D#maj7*
+BELL D#4 0 1
+BELL G4 0 1
+BELL A#4 0 1
+BELL D5 0 1/
+Emaj7*
+BELL E4 0 1
+BELL G#4 0 1
+BELL B4 0 1
+BELL D#5 0 1/
+maj7*
+BELL F4 0 1
+BELL A4 0 1
+BELL C5 0 1
+BELL E5 0 1/
+F#maj7*
+BELL F#4 0 1
+BELL A#4 0 1
+BELL C#5 0 1
+BELL F5 0 1/
+Gmaj7*
+BELL G4 0 1
+BELL B4 0 1
+BELL D5 0 1
+BELL F#5 0 1/
+G#maj7
+BELL G#4 0 1
+BELL C5 0 1
+BELL D#5 0 1
+BELL G5 0 1/
+Amaj7*
+BELL A4 0 1
+BELL C#5 0 1
+BELL E5 0 1
+BELL G#5 0 1/
+A#maj7*
+BELL A#4 0 1
+BELL D5 0 1
+BELL F5 0 1
+BELL A5 0 1/
+Bmaj7*
+BELL B4 0 1
+BELL D#5 0 1
+BELL F#5 0 1
+BELL A#5 0 1/
+🔔 Minor 7th Chords
+Cm7*
+BELL C4 0 1
+BELL D#4 0 1
+BELL G4 0 1
+BELL A#4 0 1/
+C#m7*
+BELL C#4 0 1
+BELL E4 0 1
+BELL G#4 0 1
+BELL B4 0 1/
+Dm7*
+BELL D4 0 1
+BELL F4 0 1
+BELL A4 0 1
+BELL C5 0 1/
+D#m7*
+BELL D#4 0 1
+BELL F#4 0 1
+BELL A#4 0 1
+BELL C#5 0 1/
+Em7*
+BELL E4 0 1
+BELL G4 0 1
+BELL B4 0 1
+BELL D5 0 1/
+Fm7*
+BELL F4 0 1
+BELL G#4 0 1
+BELL C5 0 1
+BELL D#5 0 1/
+F#m7*
+BELL F#4 0 1
+BELL A4 0 1
+BELL C#5 0 1
+BELL E5 0 1/
+Gm7*
+BELL G4 0 1
+BELL A#4 0 1
+BELL D5 0 1
+BELL F5 0 1/
+G#m7*
+BELL G#4 0 1
+BELL B4 0 1
+BELL D#5 0 1
+BELL F#5 0 1/
+Am7*
+BELL A4 0 1
+BELL C5 0 1
+BELL E5 0 1
+BELL G5 0 1/
+A#m7*
+BELL A#4 0 1
+BELL C#5 0 1
+BELL F5 0 1
+BELL G#5 0 1/
+Bm7*
+BELL B4 0 1
+BELL D5 0 1
+BELL F#5 0 1
+BELL A5 0 1/
+Example: dreamy bell progression
+
+For a nice bell sound, try Cmaj7 → Am7 → Fmaj7 → G7-ish. Your current program doesn't have dominant 7th yet, so for now you can use G major:
 
 TEMPO 100
-LENGTH 8
+LENGTH 4
 
-BELL C5 0 0.5
-BELL E5 0.5 0.5
-BELL G5 1 0.5
-BELL C6 1.5 1
+BELL C4 0 1
+BELL E4 0 1
+BELL G4 0 1
+BELL B4 0 1
 
-BELL G5 2.5 0.5
-BELL E5 3 0.5
-BELL C5 3.5 1
+BELL A4 1 1
+BELL C5 1 1
+BELL E5 1 1
+BELL G5 1 1
 
-BELL D5 4.5 0.5
-BELL F5 5 0.5
-BELL A5 5.5 0.5
-BELL D6 6 1
+BELL F4 2 1
+BELL A4 2 1
+BELL C5 2 1
+BELL E5 2 1
 
-BELL C6 7 1
-🔔 Bell chords
-
+BELL G4 3 1
+BELL B4 3 1
+BELL D5 3 1
 You can also play several bells at the same time:
 
 TEMPO 100
