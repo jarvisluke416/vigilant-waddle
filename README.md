@@ -22,10 +22,7 @@ TEMPO 120
 LENGTH 32 
 PIANO D#4 0 1
 PIANO G4 0 1
-PIANO A#4 0 1/
-
-
-
+PIANO A#4 0 1
 
 Piano
 Major chords
